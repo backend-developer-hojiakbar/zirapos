@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useAppContext } from '../context/AppContext.tsx';
-import { Product, GoodsReceipt, GoodsReceiptItem, Supplier } from '../types.ts';
-import { Trash2, Search, Eye } from 'lucide-react';
+import { Product, GoodsReceipt, GoodsReceiptItem, Supplier, StockMovement, StockMovementType } from '../types.ts';
+import { Trash2, Search, Eye, Package, TrendingUp, TrendingDown } from 'lucide-react';
 import Modal from '../components/Modal.tsx';
 
 const ProductSearchInput: React.FC<{
@@ -60,7 +60,8 @@ const ProductSearchInput: React.FC<{
 };
 
 const KirimForm = () => {
-    const { products, suppliers, addGoodsReceipt, settings } = useAppContext();
+    const { products, suppliers, addGoodsReceipt, settings, warehouses } = useAppContext();
+    const [warehouseId, setWarehouseId] = useState<string>(''); // Add warehouse selection
     const [supplierId, setSupplierId] = useState<string>('');
     const [items, setItems] = useState<GoodsReceiptItem[]>([]);
     const [docNumber, setDocNumber] = useState('');
@@ -89,6 +90,10 @@ const KirimForm = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!warehouseId) { // Check if warehouse is selected
+            alert("Avval omborni tanlang!");
+            return;
+        }
         if (!supplierId || items.length === 0) {
             alert("Yetkazib beruvchi va kamida bitta mahsulot tanlanishi kerak.");
             return;
@@ -99,12 +104,14 @@ const KirimForm = () => {
                 supplierId,
                 items,
                 docNumber,
-                totalAmount
+                totalAmount,
+                warehouseId // Add warehouseId to the data sent to backend
             });
             alert("Kirim muvaffaqiyatli amalga oshirildi!");
             setItems([]);
             setSupplierId('');
             setDocNumber('');
+            // Don't reset warehouseId so user can continue with the same warehouse
         } catch (error) {
             alert("Kirim qilishda xatolik yuz berdi");
         }
@@ -118,23 +125,62 @@ const KirimForm = () => {
     return (
         <form onSubmit={handleSubmit} className="space-y-6 p-4 bg-white dark:bg-gray-800 rounded-lg shadow">
             <h3 className="text-lg font-semibold">Omborga Kirim Qilish</h3>
+            
+            {/* Warehouse selection at the top */}
+            <div className="grid grid-cols-1 gap-4">
+                <div>
+                    <label className="block text-sm font-medium">Ombor *</label>
+                    <select 
+                        value={warehouseId} 
+                        onChange={e => setWarehouseId(e.target.value)} 
+                        required 
+                        className="mt-1 block w-full p-2 border-gray-300 dark:border-gray-600 rounded-md shadow-sm dark:bg-gray-700"
+                    >
+                        <option value="">Omborni tanlang...</option>
+                        {warehouses.map(w => (
+                            <option key={w.id} value={w.id}>
+                                {w.name} {w.location ? `(${w.location})` : ''}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+            </div>
+            
+            {/* Supplier and document number fields */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                 <div>
-                    <label className="block text-sm font-medium">Yetkazib beruvchi</label>
-                    <select value={supplierId} onChange={e => setSupplierId(e.target.value)} required className="mt-1 block w-full p-2 border-gray-300 dark:border-gray-600 rounded-md shadow-sm dark:bg-gray-700">
+                <div>
+                    <label className="block text-sm font-medium">Yetkazib beruvchi *</label>
+                    <select 
+                        value={supplierId} 
+                        onChange={e => setSupplierId(e.target.value)} 
+                        required 
+                        disabled={!warehouseId} // Disable until warehouse is selected
+                        className="mt-1 block w-full p-2 border-gray-300 dark:border-gray-600 rounded-md shadow-sm dark:bg-gray-700 disabled:opacity-50"
+                    >
                         <option value="">Tanlang...</option>
                         {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                     </select>
                 </div>
-                 <div>
+                <div>
                     <label className="block text-sm font-medium">Hujjat raqami (ixtiyoriy)</label>
-                    <input type="text" value={docNumber} onChange={e => setDocNumber(e.target.value)} className="mt-1 block w-full p-2 border-gray-300 dark:border-gray-600 rounded-md shadow-sm dark:bg-gray-700" />
+                    <input 
+                        type="text" 
+                        value={docNumber} 
+                        onChange={e => setDocNumber(e.target.value)} 
+                        disabled={!warehouseId} // Disable until warehouse is selected
+                        className="mt-1 block w-full p-2 border-gray-300 dark:border-gray-600 rounded-md shadow-sm dark:bg-gray-700 disabled:opacity-50" 
+                    />
                 </div>
             </div>
 
+            {/* Product search and items list */}
             <div>
                 <label className="block text-sm font-medium mb-1">Mahsulot qo'shish</label>
-                <ProductSearchInput products={products} addedProductIds={addedProductIds} onSelectProduct={handleSelectProduct} />
+                <ProductSearchInput 
+                    products={products} 
+                    addedProductIds={addedProductIds} 
+                    onSelectProduct={handleSelectProduct} 
+                />
             </div>
 
             <div className="space-y-3">
@@ -146,16 +192,37 @@ const KirimForm = () => {
                     <div key={item.productId} className="grid grid-cols-12 gap-2 items-center p-2 border dark:border-gray-700 rounded-md">
                         <div className="col-span-12 md:col-span-4 font-semibold">{product?.name}</div>
                         <div className="col-span-6 md:col-span-2">
-                            <input type="number" placeholder="Miqdori" value={item.quantity} onChange={e => handleItemChange(index, 'quantity', Number(e.target.value))} className="w-full p-2 border-gray-300 dark:border-gray-600 rounded-md shadow-sm dark:bg-gray-700" />
+                            <input 
+                                type="number" 
+                                placeholder="Miqdori" 
+                                value={item.quantity} 
+                                onChange={e => handleItemChange(index, 'quantity', Number(e.target.value))} 
+                                disabled={!warehouseId} // Disable until warehouse is selected
+                                className="w-full p-2 border-gray-300 dark:border-gray-600 rounded-md shadow-sm dark:bg-gray-700 disabled:opacity-50" 
+                            />
                         </div>
                         <div className="col-span-6 md:col-span-2">
-                            <input type="number" placeholder="Olish narxi" value={item.purchasePrice} onChange={e => handleItemChange(index, 'purchasePrice', Number(e.target.value))} className="w-full p-2 border-gray-300 dark:border-gray-600 rounded-md shadow-sm dark:bg-gray-700" />
+                            <input 
+                                type="number" 
+                                placeholder="Olish narxi" 
+                                value={item.purchasePrice} 
+                                onChange={e => handleItemChange(index, 'purchasePrice', Number(e.target.value))} 
+                                disabled={!warehouseId} // Disable until warehouse is selected
+                                className="w-full p-2 border-gray-300 dark:border-gray-600 rounded-md shadow-sm dark:bg-gray-700 disabled:opacity-50" 
+                            />
                         </div>
                         <div className="col-span-10 md:col-span-3 text-right font-medium">
                             {itemTotal.toLocaleString()} {settings.currency}
                         </div>
                         <div className="col-span-2 md:col-span-1 text-right">
-                           <button type="button" onClick={() => handleRemoveItem(index)} className="p-2 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/50 rounded-full"><Trash2 size={18} /></button>
+                           <button 
+                               type="button" 
+                               onClick={() => handleRemoveItem(index)} 
+                               disabled={!warehouseId} // Disable until warehouse is selected
+                               className="p-2 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/50 rounded-full disabled:opacity-50"
+                           >
+                               <Trash2 size={18} />
+                           </button>
                         </div>
                     </div>
                 )})}
@@ -168,7 +235,13 @@ const KirimForm = () => {
             )}
             
             <div className="text-right pt-4">
-                <button type="submit" className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50" disabled={items.length === 0 || !supplierId}>Kirimni saqlash</button>
+                <button 
+                    type="submit" 
+                    className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50" 
+                    disabled={items.length === 0 || !supplierId || !warehouseId}
+                >
+                    Kirimni saqlash
+                </button>
             </div>
         </form>
     );
@@ -237,6 +310,125 @@ const KirimlarList = () => {
     )
 };
 
+const StockMovementsList = () => {
+    const { stockMovements, products, settings } = useAppContext();
+    const [selectedMovement, setSelectedMovement] = useState<StockMovement | null>(null);
+    const [filterType, setFilterType] = useState<string>('');
+
+    const filteredMovements = useMemo(() => {
+        if (!filterType) return stockMovements;
+        return stockMovements.filter(m => m.type === filterType);
+    }, [stockMovements, filterType]);
+
+    const getProduct = (id: string) => products.find(p => p.id === id);
+
+    const movementTypeLabels: { [key in StockMovementType]: string } = {
+        [StockMovementType.KIRIM]: "Kirim",
+        [StockMovementType.CHIQIM]: "Chiqim",
+        [StockMovementType.SAVDO]: "Savdo",
+        [StockMovementType.VOZVRAT]: "Vozvrat"
+    };
+
+    const movementTypeColors: { [key in StockMovementType]: string } = {
+        [StockMovementType.KIRIM]: "text-green-500",
+        [StockMovementType.CHIQIM]: "text-red-500",
+        [StockMovementType.SAVDO]: "text-blue-500",
+        [StockMovementType.VOZVRAT]: "text-purple-500"
+    };
+
+    const movementTypeIcons: { [key in StockMovementType]: React.ElementType } = {
+        [StockMovementType.KIRIM]: TrendingUp,
+        [StockMovementType.CHIQIM]: TrendingDown,
+        [StockMovementType.SAVDO]: TrendingDown,
+        [StockMovementType.VOZVRAT]: TrendingUp
+    };
+
+    if (!settings) return null;
+
+    return (
+        <div className="space-y-4">
+            <div className="flex flex-wrap gap-2">
+                <button 
+                    onClick={() => setFilterType('')} 
+                    className={`px-3 py-1 rounded-full text-sm ${!filterType ? 'bg-blue-500 text-white' : 'bg-gray-200 dark:bg-gray-700'}`}
+                >
+                    Barchasi
+                </button>
+                {Object.entries(StockMovementType).map(([key, value]) => {
+                    const Icon = movementTypeIcons[value];
+                    return (
+                        <button 
+                            key={key}
+                            onClick={() => setFilterType(value)} 
+                            className={`px-3 py-1 rounded-full text-sm flex items-center gap-1 ${filterType === value ? 'bg-blue-500 text-white' : 'bg-gray-200 dark:bg-gray-700'}`}
+                        >
+                            <Icon size={16} />
+                            {movementTypeLabels[value]}
+                        </button>
+                    );
+                })}
+            </div>
+            
+            <div className="bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-x-auto">
+                <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+                    <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+                        <tr>
+                            <th scope="col" className="px-6 py-3">Sana</th>
+                            <th scope="col" className="px-6 py-3">Mahsulot</th>
+                            <th scope="col" className="px-6 py-3">Miqdori</th>
+                            <th scope="col" className="px-6 py-3">Turi</th>
+                            <th scope="col" className="px-6 py-3">Izoh</th>
+                            <th scope="col" className="px-6 py-3 text-right">Amallar</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {filteredMovements.map(movement => {
+                            const product = getProduct(movement.productId);
+                            const Icon = movementTypeIcons[movement.type];
+                            return (
+                                <tr key={movement.id} className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+                                    <td className="px-6 py-4">{new Date(movement.date).toLocaleDateString('uz-UZ')}</td>
+                                    <td className="px-6 py-4 font-medium">{product?.name || 'Noma\'lum'}</td>
+                                    <td className="px-6 py-4">{movement.quantity}</td>
+                                    <td className="px-6 py-4">
+                                        <span className={`flex items-center gap-1 ${movementTypeColors[movement.type]}`}>
+                                            <Icon size={16} />
+                                            {movementTypeLabels[movement.type]}
+                                        </span>
+                                    </td>
+                                    <td className="px-6 py-4">{movement.comment || '-'}</td>
+                                    <td className="px-6 py-4 text-right">
+                                        <button onClick={() => setSelectedMovement(movement)} className="p-1 text-blue-600 hover:text-blue-800">
+                                            <Eye size={18} />
+                                        </button>
+                                    </td>
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
+                
+                <Modal isOpen={!!selectedMovement} onClose={() => setSelectedMovement(null)} title="Ombor Harakati Tafsilotlari" size="md">
+                    {selectedMovement && (
+                        <div className="space-y-4">
+                            <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                                <p><strong>Sana:</strong> {new Date(selectedMovement.date).toLocaleString('uz-UZ')}</p>
+                                <p><strong>Mahsulot:</strong> {getProduct(selectedMovement.productId)?.name || 'Noma\'lum'}</p>
+                                <p><strong>Miqdori:</strong> {selectedMovement.quantity}</p>
+                                <p><strong>Turi:</strong> {movementTypeLabels[selectedMovement.type]}</p>
+                                <p><strong>Izoh:</strong> {selectedMovement.comment || '-'}</p>
+                                <p><strong>ID:</strong> {selectedMovement.relatedId || selectedMovement.id}</p>
+                            </div>
+                            <div className="flex justify-end pt-4 mt-4 border-t dark:border-gray-600">
+                                <button onClick={() => setSelectedMovement(null)} className="px-4 py-2 bg-gray-200 dark:bg-gray-600 rounded-md">Yopish</button>
+                            </div>
+                        </div>
+                    )}
+                </Modal>
+            </div>
+        </div>
+    );
+};
 
 const Ombor = () => {
     const [activeTab, setActiveTab] = useState('kirim');
@@ -244,12 +436,23 @@ const Ombor = () => {
     return (
         <div className="space-y-4">
             <div className="flex border-b border-gray-200 dark:border-gray-700">
-                <button onClick={() => setActiveTab('kirim')} className={`px-4 py-2 font-medium ${activeTab === 'kirim' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500'}`}>Kirim Qilish</button>
-                <button onClick={() => setActiveTab('royxat')} className={`px-4 py-2 font-medium ${activeTab === 'royxat' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500'}`}>Kirimlar Ro'yxati</button>
+                <button onClick={() => setActiveTab('kirim')} className={`px-4 py-2 font-medium flex items-center gap-2 ${activeTab === 'kirim' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500'}`}>
+                    <Package size={18} />
+                    Kirim Qilish
+                </button>
+                <button onClick={() => setActiveTab('royxat')} className={`px-4 py-2 font-medium flex items-center gap-2 ${activeTab === 'royxat' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500'}`}>
+                    <TrendingUp size={18} />
+                    Kirimlar Ro'yxati
+                </button>
+                <button onClick={() => setActiveTab('harakatlar')} className={`px-4 py-2 font-medium flex items-center gap-2 ${activeTab === 'harakatlar' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500'}`}>
+                    <TrendingDown size={18} />
+                    Ombor Harakatlari
+                </button>
             </div>
             <div>
                 {activeTab === 'kirim' && <KirimForm />}
                 {activeTab === 'royxat' && <KirimlarList />}
+                {activeTab === 'harakatlar' && <StockMovementsList />}
             </div>
         </div>
     );

@@ -1,12 +1,13 @@
 import React from 'react';
 import { HashRouter, Route, Routes, Navigate, useLocation, Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { AppProvider, useAppContext } from './context/AppContext.tsx';
-import { LayoutDashboard, Terminal, History, Package, Barcode, Users, Truck, BarChart2, UsersRound, Settings, Lock } from 'lucide-react';
+import { LayoutDashboard, Terminal, History, Package, Barcode, Users, Truck, BarChart2, UsersRound, Settings, Lock, Warehouse as WarehouseIcon } from 'lucide-react';
 import Savdo from './pages/Savdo.tsx';
 import Dashboard from './pages/Dashboard.tsx';
 import SavdolarTarixi from './pages/SavdolarTarixi.tsx';
 import Mahsulotlar from './pages/Mahsulotlar.tsx';
 import Ombor from './pages/Ombor.tsx';
+import Omborlar from './pages/Omborlar.tsx';
 import Mijozlar from './pages/Mijozlar.tsx';
 import YetkazibBeruvchilar from './pages/YetkazibBeruvchilar.tsx';
 import Hisobotlar from './pages/Hisobotlar.tsx';
@@ -21,6 +22,7 @@ const navLinks = [
   { path: '/savdo-tarixi', label: "Savdolar Tarixi", icon: History, permission: Permission.VIEW_SALES_HISTORY },
   { path: '/mahsulotlar', label: "Mahsulotlar", icon: Package, permission: Permission.MANAGE_PRODUCTS },
   { path: '/ombor', label: "Ombor", icon: Barcode, permission: Permission.MANAGE_WAREHOUSE },
+  { path: '/omborlar', label: "Omborlar", icon: WarehouseIcon, permission: Permission.MANAGE_WAREHOUSE },
   { path: '/mijozlar', label: "Mijozlar", icon: Users, permission: Permission.MANAGE_CUSTOMERS },
   { path: '/yetkazib-beruvchilar', label: "Yetkazib Beruvchilar", icon: Truck, permission: Permission.MANAGE_SUPPLIERS },
   { path: '/hisobotlar', label: "Hisobotlar", icon: BarChart2, permission: Permission.VIEW_REPORTS },
@@ -154,6 +156,7 @@ const AppRoutes = () => {
         <Route path="/savdo-tarixi" element={<PermissionRoute permission={Permission.VIEW_SALES_HISTORY}><SavdolarTarixi /></PermissionRoute>} />
         <Route path="/mahsulotlar" element={<PermissionRoute permission={Permission.MANAGE_PRODUCTS}><Mahsulotlar /></PermissionRoute>} />
         <Route path="/ombor" element={<PermissionRoute permission={Permission.MANAGE_WAREHOUSE}><Ombor /></PermissionRoute>} />
+        <Route path="/omborlar" element={<PermissionRoute permission={Permission.MANAGE_WAREHOUSE}><Omborlar /></PermissionRoute>} />
         <Route path="/mijozlar" element={<PermissionRoute permission={Permission.MANAGE_CUSTOMERS}><Mijozlar /></PermissionRoute>} />
         <Route path="/yetkazib-beruvchilar" element={<PermissionRoute permission={Permission.MANAGE_SUPPLIERS}><YetkazibBeruvchilar /></PermissionRoute>} />
         <Route path="/hisobotlar" element={<PermissionRoute permission={Permission.VIEW_REPORTS}><Hisobotlar /></PermissionRoute>} />

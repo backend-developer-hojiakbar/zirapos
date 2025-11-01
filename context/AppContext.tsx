@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
-import { Product, Customer, Supplier, Sale, Employee, Role, Permission, StoreSettings, DebtPayment, GoodsReceipt, Unit } from '../types.ts';
+import { Product, Customer, Supplier, Sale, Employee, Role, Permission, StoreSettings, DebtPayment, GoodsReceipt, Unit, StockMovement, Warehouse, WarehouseProduct } from '../types.ts';
 
 import { CartItem } from '../types.ts';
 
@@ -30,6 +30,9 @@ interface AppContextType {
     isReceiptModalOpen: boolean;
     lastSale: Sale | null;
     isAddCustomerModalOpen: boolean;
+    stockMovements: StockMovement[];
+    warehouses: Warehouse[]; // Add this line
+    warehouseProducts: WarehouseProduct[]; // Add this line
     addProductToCart: (product: Product, quantity: number) => void;
     removeProductFromCart: (productId: string) => void;
     updateCartItemQuantity: (productId: string, quantity: number) => void;
@@ -63,6 +66,12 @@ interface AppContextType {
     deleteSupplier: (id: string) => Promise<void>;
     addUnit: (data: Partial<Unit>) => Promise<Unit>;
     deleteUnit: (id: string) => Promise<void>;
+    addWarehouse: (data: Partial<Warehouse>) => Promise<Warehouse>; // Add this line
+    updateWarehouse: (id: string, data: Partial<Warehouse>) => Promise<Warehouse>; // Add this line
+    deleteWarehouse: (id: string) => Promise<void>; // Add this line
+    addWarehouseProduct: (data: Partial<WarehouseProduct>) => Promise<WarehouseProduct>; // Add this line
+    updateWarehouseProduct: (id: string, data: Partial<WarehouseProduct>) => Promise<WarehouseProduct>; // Add this line
+    deleteWarehouseProduct: (id: string) => Promise<void>; // Add this line
     setIsDataLoading: (loading: boolean) => void;
     setCurrentUser: (user: Employee | null) => void;
     setProducts: (products: Product[]) => void;
@@ -76,6 +85,9 @@ interface AppContextType {
     setRoles: (roles: Role[]) => void;
     setEmployees: (employees: Employee[]) => void;
     setCart: (cart: CartItem[]) => void;
+    setStockMovements: (movements: StockMovement[]) => void;
+    setWarehouses: (warehouses: Warehouse[]) => void; // Add this line
+    setWarehouseProducts: (warehouseProducts: WarehouseProduct[]) => void; // Add this line
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -89,6 +101,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     const [sales, setSales] = useState<Sale[]>([]);
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [roles, setRoles] = useState<Role[]>([]);
+    const [stockMovements, setStockMovements] = useState<StockMovement[]>([]);
+    const [warehouses, setWarehouses] = useState<Warehouse[]>([]); // Add this line
+    const [warehouseProducts, setWarehouseProducts] = useState<WarehouseProduct[]>([]); // Add this line
 
     const [settings, setSettings] = useState<StoreSettings | null>(null);
     const [debtPayments, setDebtPayments] = useState<DebtPayment[]>([]);
@@ -145,6 +160,15 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             setGoodsReceipts(data.goodsReceipts);
             setRoles(data.roles);
             setEmployees(data.employees);
+            setStockMovements(data.stockMovements || []);
+            
+            // Fetch warehouses and warehouse products
+            const warehousesResponse = await api.get('/warehouses/');
+            setWarehouses(warehousesResponse.data);
+            
+            const warehouseProductsResponse = await api.get('/warehouse-products/');
+            setWarehouseProducts(warehouseProductsResponse.data);
+            
             const meResponse = await api.get('/auth/me/');
             setCurrentUser(meResponse.data);
         } catch (error) {
@@ -269,6 +293,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         isReceiptModalOpen,
         lastSale,
         isAddCustomerModalOpen,
+        stockMovements,
+        warehouses,
+        warehouseProducts,
         addProductToCart,
         removeProductFromCart,
         updateCartItemQuantity,
@@ -293,6 +320,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         setRoles,
         setEmployees,
         setCart,
+        setStockMovements,
+        setWarehouses,
+        setWarehouseProducts,
         reloadData: fetchInitialData,
         createSale,
         addGoodsReceipt,
@@ -314,7 +344,13 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         updateSupplier: (id: string, data: Partial<Supplier>) => updateEntity('suppliers', id, data),
         deleteSupplier: (id: string) => deleteEntity('suppliers', id),
         addUnit: (data: Partial<Unit>) => addEntity('units', data),
-        deleteUnit: (id: string) => deleteEntity('units', id)
+        deleteUnit: (id: string) => deleteEntity('units', id),
+        addWarehouse: (data: Partial<Warehouse>) => addEntity('warehouses', data),
+        updateWarehouse: (id: string, data: Partial<Warehouse>) => updateEntity('warehouses', id, data),
+        deleteWarehouse: (id: string) => deleteEntity('warehouses', id),
+        addWarehouseProduct: (data: Partial<WarehouseProduct>) => addEntity('warehouse-products', data),
+        updateWarehouseProduct: (id: string, data: Partial<WarehouseProduct>) => updateEntity('warehouse-products', id, data),
+        deleteWarehouseProduct: (id: string) => deleteEntity('warehouse-products', id),
     };
 
     return (

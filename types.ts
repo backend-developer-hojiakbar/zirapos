@@ -119,6 +119,7 @@ export enum StockMovementType {
 export interface StockMovement {
     id: string;
     productId: string;
+    product?: Product;
     quantity: number;
     type: StockMovementType;
     date: string;
@@ -126,19 +127,51 @@ export interface StockMovement {
     comment?: string;
 }
 
-export interface Unit {
-  id: string;
-  name: string;
+export interface Warehouse {
+    id: string;
+    name: string;
+    location?: string;
+    description?: string;
+    is_active: boolean;
+    created_at?: string;
+    updated_at?: string;
+}
+
+export interface WarehouseProduct {
+    id: string;
+    warehouseId: string;
+    warehouse?: Warehouse;
+    productId: string;
+    product?: Product;
+    quantity: number;
+    reserved_quantity: number;
+    available_quantity?: number;
+    created_at?: string;
+    updated_at?: string;
 }
 
 export interface GoodsReceiptItem {
     productId: string;
+    product?: Product;
     quantity: number;
     purchasePrice: number;
 }
 
-export interface GoodsReceiptItem {
-  productId: string;
+export interface GoodsReceipt {
+    id: string;
+    date: string;
+    supplierId: string;
+    supplier?: Supplier;
+    docNumber?: string;
+    items: GoodsReceiptItem[];
+    totalAmount: number | string;
+    warehouseId?: string;  // Add warehouse field
+    warehouse?: Warehouse; // Add warehouse field
+}
+
+export interface Unit {
+  id: string;
+  name: string;
 }
 
 export interface StoreSettings {
