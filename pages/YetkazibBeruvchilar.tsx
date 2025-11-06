@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext.tsx';
 import { Supplier } from '../types.ts';
 import Modal from '../components/Modal.tsx';
 import { PlusCircle, Edit, Trash2 } from 'lucide-react';
+import { useKeyboardNavigation } from '../hooks/useKeyboardNavigation.ts';
 
 const SupplierForm: React.FC<{ supplier?: Supplier; onSave: (supplier: Partial<Supplier>) => void; onClose: () => void }> = ({ supplier, onSave, onClose }) => {
     const [formData, setFormData] = useState({ name: supplier?.name || '', contactPerson: supplier?.contactPerson || '', phone: supplier?.phone || '', address: supplier?.address || '', bankDetails: supplier?.bankDetails || '' });
@@ -46,6 +47,7 @@ const YetkazibBeruvchilar = () => {
     const [isModalOpen, setModalOpen] = useState(false);
     const [editingSupplier, setEditingSupplier] = useState<Supplier | undefined>(undefined);
     const [searchTerm, setSearchTerm] = useState('');
+    const tableRef = useRef<HTMLDivElement>(null);
 
     const handleOpenModal = (supplier?: Supplier) => { setEditingSupplier(supplier); setModalOpen(true); };
     const handleCloseModal = () => { setEditingSupplier(undefined); setModalOpen(false); };
@@ -64,6 +66,32 @@ const YetkazibBeruvchilar = () => {
     };
 
     const filteredSuppliers = suppliers.filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase()));
+    
+    // Implement keyboard navigation
+    const { focusedIndex, isKeyboardMode, moveFocus, resetFocus } = useKeyboardNavigation(filteredSuppliers);
+
+    // Handle keyboard events for the table
+    useEffect(() => {
+        const handleTableKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Enter' && focusedIndex >= 0 && focusedIndex < filteredSuppliers.length) {
+                e.preventDefault();
+                handleOpenModal(filteredSuppliers[focusedIndex]);
+            }
+        };
+
+        const table = tableRef.current;
+        if (table) {
+            table.addEventListener('keydown', handleTableKeyDown as EventListener);
+            return () => {
+                table.removeEventListener('keydown', handleTableKeyDown as EventListener);
+            };
+        }
+    }, [focusedIndex, filteredSuppliers, handleOpenModal]);
+
+    // Reset focus when search term changes
+    useEffect(() => {
+        resetFocus();
+    }, [searchTerm, resetFocus]);
 
     return (
         <div className="space-y-4">
@@ -74,7 +102,7 @@ const YetkazibBeruvchilar = () => {
                     Yangi yetkazib beruvchi
                 </button>
             </div>
-            <div className="bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-x-auto">
+            <div ref={tableRef} className="bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-x-auto" tabIndex={0}>
                 <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
                     <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
                         <tr>
@@ -85,8 +113,15 @@ const YetkazibBeruvchilar = () => {
                         </tr>
                     </thead>
                     <tbody>
-                        {filteredSuppliers.map(s => (
-                            <tr key={s.id} className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+                        {filteredSuppliers.map((s, index) => (
+                            <tr 
+                                key={s.id} 
+                                className={`bg-white dark:bg-gray-800 border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 ${
+                                    isKeyboardMode && index === focusedIndex 
+                                        ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-gray-700' 
+                                        : ''
+                                }`}
+                            >
                                 <td className="px-6 py-4 font-medium text-gray-900 dark:text-white whitespace-nowrap">{s.name}</td>
                                 <td className="px-6 py-4">{s.contactPerson}</td>
                                 <td className="px-6 py-4">{s.phone}</td>

@@ -1,8 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext.tsx';
 import { Warehouse, WarehouseProduct, Product } from '../types.ts';
 import { Plus, Edit, Trash2, Search, Eye, Warehouse as WarehouseIcon } from 'lucide-react';
 import Modal from '../components/Modal.tsx';
+import { useKeyboardNavigation } from '../hooks/useKeyboardNavigation.ts';
 
 const WarehouseForm: React.FC<{
     warehouse?: Warehouse;
@@ -179,6 +180,7 @@ const WarehouseProductsList: React.FC<{ warehouseId: string }> = ({ warehouseId 
     const { warehouseProducts, products, addWarehouseProduct, updateWarehouseProduct, deleteWarehouseProduct } = useAppContext();
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [editingProduct, setEditingProduct] = useState<WarehouseProduct | null>(null);
+    const tableRef = useRef<HTMLDivElement>(null);
 
     const warehouseProductsList = useMemo(() => {
         return warehouseProducts.filter(wp => wp.warehouseId === warehouseId);
@@ -218,6 +220,27 @@ const WarehouseProductsList: React.FC<{ warehouseId: string }> = ({ warehouseId 
             }
         }
     };
+    
+    // Implement keyboard navigation for warehouse products
+    const { focusedIndex, isKeyboardMode, moveFocus } = useKeyboardNavigation(warehouseProductsList);
+
+    // Handle keyboard events for the table
+    useEffect(() => {
+        const handleTableKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Enter' && focusedIndex >= 0 && focusedIndex < warehouseProductsList.length) {
+                e.preventDefault();
+                handleEditProduct(warehouseProductsList[focusedIndex]);
+            }
+        };
+
+        const table = tableRef.current;
+        if (table) {
+            table.addEventListener('keydown', handleTableKeyDown as EventListener);
+            return () => {
+                table.removeEventListener('keydown', handleTableKeyDown as EventListener);
+            };
+        }
+    }, [focusedIndex, warehouseProductsList, handleEditProduct]);
 
     return (
         <div className="space-y-4">
@@ -237,7 +260,7 @@ const WarehouseProductsList: React.FC<{ warehouseId: string }> = ({ warehouseId 
                     Bu omborda hali mahsulotlar yo'q
                 </div>
             ) : (
-                <div className="bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-x-auto">
+                <div ref={tableRef} className="bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-x-auto" tabIndex={0}>
                     <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
                         <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
                             <tr>
@@ -249,10 +272,17 @@ const WarehouseProductsList: React.FC<{ warehouseId: string }> = ({ warehouseId 
                             </tr>
                         </thead>
                         <tbody>
-                            {warehouseProductsList.map(wp => {
+                            {warehouseProductsList.map((wp, index) => {
                                 const product = getProduct(wp.productId);
                                 return (
-                                    <tr key={wp.id} className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+                                    <tr 
+                                        key={wp.id} 
+                                        className={`bg-white dark:bg-gray-800 border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 ${
+                                            isKeyboardMode && index === focusedIndex 
+                                                ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-gray-700' 
+                                                : ''
+                                        }`}
+                                    >
                                         <td className="px-6 py-4 font-medium">{product?.name || 'Noma\'lum'}</td>
                                         <td className="px-6 py-4">{wp.quantity} {product?.unit || ''}</td>
                                         <td className="px-6 py-4">{wp.reserved_quantity} {product?.unit || ''}</td>
@@ -296,6 +326,7 @@ const Omborlar = () => {
     const [editingWarehouse, setEditingWarehouse] = useState<Warehouse | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | null>(null);
+    const warehouseListRef = useRef<HTMLDivElement>(null);
 
     const filteredWarehouses = useMemo(() => {
         if (!searchTerm) return warehouses;
@@ -309,6 +340,27 @@ const Omborlar = () => {
     const selectedWarehouse = useMemo(() => {
         return warehouses.find(w => w.id === selectedWarehouseId) || null;
     }, [warehouses, selectedWarehouseId]);
+    
+    // Implement keyboard navigation for warehouse list
+    const { focusedIndex, isKeyboardMode, moveFocus } = useKeyboardNavigation(filteredWarehouses);
+
+    // Handle keyboard events for the warehouse list
+    useEffect(() => {
+        const handleWarehouseListKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Enter' && focusedIndex >= 0 && focusedIndex < filteredWarehouses.length) {
+                e.preventDefault();
+                setSelectedWarehouseId(filteredWarehouses[focusedIndex].id);
+            }
+        };
+
+        const list = warehouseListRef.current;
+        if (list) {
+            list.addEventListener('keydown', handleWarehouseListKeyDown as EventListener);
+            return () => {
+                list.removeEventListener('keydown', handleWarehouseListKeyDown as EventListener);
+            };
+        }
+    }, [focusedIndex, filteredWarehouses, setSelectedWarehouseId]);
 
     const handleAddWarehouse = () => {
         setEditingWarehouse(null);
@@ -373,8 +425,8 @@ const Omborlar = () => {
                             />
                         </div>
                         
-                        <div className="space-y-2 max-h-[calc(100vh-250px)] overflow-y-auto">
-                            {filteredWarehouses.map(warehouse => (
+                        <div ref={warehouseListRef} className="space-y-2 max-h-[calc(100vh-250px)] overflow-y-auto" tabIndex={0}>
+                            {filteredWarehouses.map((warehouse, index) => (
                                 <div
                                     key={warehouse.id}
                                     onClick={() => setSelectedWarehouseId(warehouse.id)}
@@ -382,6 +434,10 @@ const Omborlar = () => {
                                         selectedWarehouseId === warehouse.id
                                             ? 'bg-blue-100 dark:bg-blue-900 border-blue-500'
                                             : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600'
+                                    } ${
+                                        isKeyboardMode && index === focusedIndex 
+                                            ? 'ring-2 ring-blue-500' 
+                                            : ''
                                     }`}
                                 >
                                     <div className="flex justify-between items-start">

@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext.tsx';
 import { Employee, Role, Permission, permissionLabels } from '../types.ts';
 import Modal from '../components/Modal.tsx';
 import { PlusCircle, Edit, Trash2 } from 'lucide-react';
+import { useKeyboardNavigation } from '../hooks/useKeyboardNavigation.ts';
 
 const RoleForm: React.FC<{ role?: Role; onSave: (role: Partial<Role>) => void; onClose: () => void }> = ({ role, onSave, onClose }) => {
     const [name, setName] = useState(role?.name || '');
@@ -89,7 +90,9 @@ const Hodimlar = () => {
     const [isEmployeeModalOpen, setEmployeeModalOpen] = useState(false);
     const [editingRole, setEditingRole] = useState<Role | undefined>(undefined);
     const [editingEmployee, setEditingEmployee] = useState<Employee | undefined>(undefined);
-    
+    const employeesTableRef = useRef<HTMLDivElement>(null);
+    const rolesTableRef = useRef<HTMLDivElement>(null);
+
     const handleOpenRoleModal = (role?: Role) => { setEditingRole(role); setRoleModalOpen(true); };
     const handleOpenEmployeeModal = (employee?: Employee) => { setEditingEmployee(employee); setEmployeeModalOpen(true); };
     const handleCloseModals = () => { setRoleModalOpen(false); setEmployeeModalOpen(false); setEditingRole(undefined); setEditingEmployee(undefined); };
@@ -119,6 +122,46 @@ const Hodimlar = () => {
             try { await deleteRole(id); } catch (error) { alert("Rolni o'chirishda xatolik."); }
         }
     };
+    
+    // Implement keyboard navigation
+    const { focusedIndex: employeeFocusedIndex, isKeyboardMode: isEmployeeKeyboardMode, moveFocus: moveEmployeeFocus, resetFocus: resetEmployeeFocus } = useKeyboardNavigation(employees);
+    const { focusedIndex: roleFocusedIndex, isKeyboardMode: isRoleKeyboardMode, moveFocus: moveRoleFocus, resetFocus: resetRoleFocus } = useKeyboardNavigation(roles);
+
+    // Handle keyboard events for employees table
+    useEffect(() => {
+        const handleEmployeesTableKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Enter' && employeeFocusedIndex >= 0 && employeeFocusedIndex < employees.length) {
+                e.preventDefault();
+                handleOpenEmployeeModal(employees[employeeFocusedIndex]);
+            }
+        };
+
+        const table = employeesTableRef.current;
+        if (table && activeTab === 'employees') {
+            table.addEventListener('keydown', handleEmployeesTableKeyDown as EventListener);
+            return () => {
+                table.removeEventListener('keydown', handleEmployeesTableKeyDown as EventListener);
+            };
+        }
+    }, [employeeFocusedIndex, employees, handleOpenEmployeeModal, activeTab]);
+
+    // Handle keyboard events for roles table
+    useEffect(() => {
+        const handleRolesTableKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Enter' && roleFocusedIndex >= 0 && roleFocusedIndex < roles.length) {
+                e.preventDefault();
+                handleOpenRoleModal(roles[roleFocusedIndex]);
+            }
+        };
+
+        const table = rolesTableRef.current;
+        if (table && activeTab === 'roles') {
+            table.addEventListener('keydown', handleRolesTableKeyDown as EventListener);
+            return () => {
+                table.removeEventListener('keydown', handleRolesTableKeyDown as EventListener);
+            };
+        }
+    }, [roleFocusedIndex, roles, handleOpenRoleModal, activeTab]);
 
     return (
         <div className="space-y-4">
@@ -135,7 +178,7 @@ const Hodimlar = () => {
                             Yangi xodim
                         </button>
                     </div>
-                    <div className="bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-x-auto">
+                    <div ref={employeesTableRef} className="bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-x-auto" tabIndex={0}>
                         <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
                             <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
                                 <tr>
@@ -146,8 +189,15 @@ const Hodimlar = () => {
                                 </tr>
                             </thead>
                             <tbody>
-                                {employees.map(e => (
-                                    <tr key={e.id} className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+                                {employees.map((e, index) => (
+                                    <tr 
+                                        key={e.id} 
+                                        className={`bg-white dark:bg-gray-800 border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 ${
+                                            isEmployeeKeyboardMode && index === employeeFocusedIndex 
+                                                ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-gray-700' 
+                                                : ''
+                                        }`}
+                                    >
                                         <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">{e.name}</td>
                                         <td className="px-6 py-4">{e.phone}</td>
                                         <td className="px-6 py-4"><span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300">{e.role?.name || 'Noma\'lum'}</span></td>
@@ -171,7 +221,7 @@ const Hodimlar = () => {
                             Yangi rol
                         </button>
                     </div>
-                    <div className="bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-x-auto">
+                    <div ref={rolesTableRef} className="bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-x-auto" tabIndex={0}>
                         <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
                             <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
                                 <tr>
@@ -181,8 +231,15 @@ const Hodimlar = () => {
                                 </tr>
                             </thead>
                              <tbody>
-                                {roles.map(r => (
-                                    <tr key={r.id} className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+                                {roles.map((r, index) => (
+                                    <tr 
+                                        key={r.id} 
+                                        className={`bg-white dark:bg-gray-800 border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 ${
+                                            isRoleKeyboardMode && index === roleFocusedIndex 
+                                                ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-gray-700' 
+                                                : ''
+                                        }`}
+                                    >
                                         <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">{r.name}</td>
                                         <td className="px-6 py-4">{r.permissions.length} ta</td>
                                         <td className="px-6 py-4 text-right">
@@ -200,6 +257,7 @@ const Hodimlar = () => {
             <Modal isOpen={isRoleModalOpen} onClose={handleCloseModals} title={editingRole ? "Rolni tahrirlash" : "Yangi rol qo'shish"} size="lg">
                 <RoleForm role={editingRole} onSave={handleSaveRole} onClose={handleCloseModals} />
             </Modal>
+            
             <Modal isOpen={isEmployeeModalOpen} onClose={handleCloseModals} title={editingEmployee ? "Xodimni tahrirlash" : "Yangi xodim qo'shish"} size="lg">
                 <EmployeeForm employee={editingEmployee} onSave={handleSaveEmployee} onClose={handleCloseModals} />
             </Modal>

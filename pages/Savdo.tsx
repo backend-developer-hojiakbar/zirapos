@@ -2,9 +2,10 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext.tsx';
 import { Product, CartItem, PaymentType, Sale, Customer, SalePayment } from '../types.ts';
 import { Link } from 'react-router-dom';
-import { PlusCircle, MinusCircle, XCircle, Search, UserPlus, Printer, CheckCircle, Trash2, Home, ShoppingCart, AlertCircle } from 'lucide-react';
+import { PlusCircle, MinusCircle, XCircle, Search, UserPlus, Printer, CheckCircle, Trash2, Home, ShoppingCart, AlertCircle, Edit3 } from 'lucide-react';
 import Modal from '../components/Modal.tsx';
 import PrintableReceipt from '../components/PrintableReceipt';
+import { useKeyboardNavigation } from '../hooks/useKeyboardNavigation.ts';
 
 const AddCustomerModal: React.FC<{
   isOpen: boolean;
@@ -162,7 +163,8 @@ const Savdo = () => {
     setCart,
     addProductToCart,
     removeProductFromCart,
-    updateCartItemQuantity
+    updateCartItemQuantity,
+    updateCartItemPrice // New function
   } = useAppContext();
 
   // Clear cart function using context's cart state
@@ -172,33 +174,45 @@ const Savdo = () => {
     setSelectedCustomerId(null);
   };
 
-  // Product table row click handler
-
-
   // Product selection handler using context's cart functions
-  const handleProductSelect = (product: Product) => {
+  const handleProductSelect = (product: Product, isWholesale: boolean = false) => {
     if (product.stock <= 0) {
       alert('Bu mahsulotdan qoldiq yo\'q!');
       return;
     }
     
+    // Check if product already exists in cart
     const existingItem = cart.find(item => item.product.id === product.id);
     if (existingItem) {
+      // If product exists, just increase quantity
       updateCartItemQuantity(product.id, existingItem.quantity + 1);
     } else {
-      addProductToCart(product, 1);
+      // For wholesale, we might want to show a modal to set the price
+      if (isWholesale) {
+        // We'll add the product with default price for now, and let user edit it in cart
+        addProductToCart(product, 1, true);
+      } else {
+        addProductToCart(product, 1);
+      }
     }
+    
+    // Clear the search term after selecting a product
+    setSearchTerm('');
   };
 
   const [selectedCustomer, setSelectedCustomer] = useState<string | undefined>(undefined);
   const [isAddCustomerModalOpen, setIsAddCustomerModalOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
-
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
+  const [editingPriceItemId, setEditingPriceItemId] = useState<string | null>(null);
+  const [editingPriceValue, setEditingPriceValue] = useState<number>(0);
+
   const receiptRef = useRef<HTMLDivElement>(null);
+  const productTableRef = useRef<HTMLDivElement>(null);
 
   // Cart item rendering helper
   const getProductName = (id: string) => products.find(p => p.id === id)?.name || ''; 
+  
   const lastSaleCustomer = useMemo(() => lastSale?.customerId ? customers.find(c => c.id === lastSale.customerId) || null : null, [lastSale, customers]);
   const handleAddNewCustomer = (customer: Customer) => setSelectedCustomerId(customer.id);
 
@@ -231,7 +245,6 @@ const Savdo = () => {
           Object.entries(error.response.data).map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(', ') : value}`).join('\n')
           : "Noma'lum server xatoligi.";
       alert(`Xatolik yuz berdi:\n\n${errorMessages}`);
-      setIsPaymentProcessing(false);
     }
   };
 
@@ -243,6 +256,32 @@ const Savdo = () => {
       )
     ), [products, searchTerm]
   );
+
+  // Implement keyboard navigation for product table
+  const { focusedIndex, isKeyboardMode, moveFocus, resetFocus } = useKeyboardNavigation(filteredProducts);
+
+  // Handle keyboard events for the product table
+  useEffect(() => {
+    const handleTableKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Enter' && focusedIndex >= 0 && focusedIndex < filteredProducts.length) {
+        e.preventDefault();
+        handleProductSelect(filteredProducts[focusedIndex]);
+      }
+    };
+
+    const table = productTableRef.current;
+    if (table) {
+      table.addEventListener('keydown', handleTableKeyDown as EventListener);
+      return () => {
+        table.removeEventListener('keydown', handleTableKeyDown as EventListener);
+      };
+    }
+  }, [focusedIndex, filteredProducts, handleProductSelect]);
+
+  // Reset focus when search term changes
+  useEffect(() => {
+    resetFocus();
+  }, [searchTerm, resetFocus]);
 
   const handlePrint = () => {
     const receiptContent = receiptRef.current?.innerHTML;
@@ -272,8 +311,23 @@ const Savdo = () => {
         }
     }
   };
-  
 
+  // Handle price editing
+  const startEditingPrice = (item: CartItem) => {
+    setEditingPriceItemId(item.productId);
+    setEditingPriceValue(item.price);
+  };
+
+  const savePriceEdit = () => {
+    if (editingPriceItemId) {
+      updateCartItemPrice(editingPriceItemId, editingPriceValue);
+      setEditingPriceItemId(null);
+    }
+  };
+
+  const cancelPriceEdit = () => {
+    setEditingPriceItemId(null);
+  };
 
   const subtotal = useMemo(() => cart.reduce((acc, item) => acc + item.price * item.quantity, 0), [cart]);
   const [discount, setDiscount] = useState(0);
@@ -298,20 +352,61 @@ const Savdo = () => {
                 <div className="p-4 border-b dark:border-gray-700">
                     <div className="relative">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={24} />
-                        <input type="text" placeholder="Mahsulotni nomi yoki shtrix-kodi bo'yicha qidirish..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full p-4 pl-14 border rounded-lg dark:bg-gray-700 dark:border-gray-600 text-lg"/>
+                        <input 
+                            type="text" 
+                            placeholder="Mahsulotni nomi yoki shtrix-kodi bo'yicha qidirish..." 
+                            value={searchTerm} 
+                            onChange={(e) => setSearchTerm(e.target.value)} 
+                            className="w-full p-4 pl-14 border rounded-lg dark:bg-gray-700 dark:border-gray-600 text-lg"
+                        />
                     </div>
                 </div>
-                <div className="flex-grow overflow-y-auto">
+                <div ref={productTableRef} className="flex-grow overflow-y-auto" tabIndex={0}>
                     <table className="w-full text-left text-gray-500 dark:text-gray-400">
                         <thead className="text-base text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400 sticky top-0">
-                            <tr><th scope="col" className="px-6 py-4">Nomi</th><th scope="col" className="px-6 py-4">Qoldiq</th><th scope="col" className="px-6 py-4">Narxi</th></tr>
+                            <tr>
+                                <th scope="col" className="px-6 py-4">Nomi</th>
+                                <th scope="col" className="px-6 py-4">Qoldiq</th>
+                                <th scope="col" className="px-6 py-4">Narxi</th>
+                                <th scope="col" className="px-6 py-4">Amallar</th>
+                            </tr>
                         </thead>
                         <tbody className="text-lg">
-                            {filteredProducts.map(product => (
-                            <tr key={product.id} onClick={() => handleProductSelect(product)} className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 cursor-pointer">
+                            {filteredProducts.map((product, index) => (
+                            <tr 
+                                key={product.id} 
+                                onClick={() => handleProductSelect(product)} 
+                                className={`bg-white dark:bg-gray-800 border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 cursor-pointer ${
+                                    isKeyboardMode && index === focusedIndex 
+                                        ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-gray-700' 
+                                        : ''
+                                }`}
+                            >
                                 <td className="px-6 py-4 font-medium text-gray-900 dark:text-white whitespace-nowrap">{product.name}</td>
                                 <td className={`px-6 py-4 ${product.stock <= product.minStock ? 'text-red-500 font-bold' : ''}`}>{product.stock} {product.unit}</td>
                                 <td className="px-6 py-4 font-bold text-blue-600 dark:text-blue-400">{Number(product.salePrice).toLocaleString()}</td>
+                                <td className="px-6 py-4">
+                                    <div className="flex space-x-2">
+                                        <button 
+                                            onClick={(e) => { 
+                                                e.stopPropagation(); 
+                                                handleProductSelect(product, false); 
+                                            }} 
+                                            className="px-2 py-1 bg-blue-500 text-white rounded text-sm"
+                                        >
+                                            Dona
+                                        </button>
+                                        <button 
+                                            onClick={(e) => { 
+                                                e.stopPropagation(); 
+                                                handleProductSelect(product, true); 
+                                            }} 
+                                            className="px-2 py-1 bg-green-500 text-white rounded text-sm"
+                                        >
+                                            Optom
+                                        </button>
+                                    </div>
+                                </td>
                             </tr>
                             ))}
                         </tbody>
@@ -332,7 +427,33 @@ const Savdo = () => {
                              <div className="flex-grow">
                                  <p className="font-semibold">{getProductName(item.productId)}</p>
                                  <div className="flex items-center gap-2">
-                                     <p className="text-sm text-gray-500">{item.price.toLocaleString()} x {item.quantity}</p>
+                                     {editingPriceItemId === item.productId ? (
+                                         <div className="flex items-center gap-2">
+                                             <input 
+                                                 type="number" 
+                                                 value={editingPriceValue} 
+                                                 onChange={(e) => setEditingPriceValue(Number(e.target.value))} 
+                                                 className="w-24 p-1 border rounded text-sm dark:bg-gray-700 dark:border-gray-600"
+                                                 autoFocus
+                                             />
+                                             <button onClick={savePriceEdit} className="p-1 text-green-500">
+                                                 <CheckCircle size={16} />
+                                             </button>
+                                             <button onClick={cancelPriceEdit} className="p-1 text-red-500">
+                                                 <XCircle size={16} />
+                                             </button>
+                                         </div>
+                                     ) : (
+                                         <div className="flex items-center gap-2">
+                                             <p className="text-sm text-gray-500">{item.price.toLocaleString()} x {item.quantity}</p>
+                                             <button 
+                                                 onClick={() => startEditingPrice(item)} 
+                                                 className="p-1 text-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/50 rounded-full"
+                                             >
+                                                 <Edit3 size={14} />
+                                             </button>
+                                         </div>
+                                     )}
                                      {isStockLow && <AlertCircle className="h-4 w-4 text-red-500" />}
                                  </div>
                              </div>

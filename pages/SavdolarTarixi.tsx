@@ -1,9 +1,10 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext.tsx';
-import { Sale, PaymentType } from '../types.ts';
+import { Sale, PaymentType, Customer, Employee } from '../types.ts';
 import Modal from '../components/Modal.tsx';
 import PrintableReceipt from '../components/PrintableReceipt.tsx';
-import { Eye, Printer } from 'lucide-react';
+import { Eye, Printer, Edit } from 'lucide-react';
+import { useKeyboardNavigation } from '../hooks/useKeyboardNavigation.ts';
 
 const paymentTypeLabels: { [key in PaymentType]: string } = {
     [PaymentType.CASH]: "Naqd",
@@ -16,6 +17,8 @@ const SavdolarTarixi = () => {
     const { sales, customers, products, settings, employees } = useAppContext();
     const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
     const [isModalOpen, setModalOpen] = useState(false);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [editFormData, setEditFormData] = useState<Partial<Sale>>({});
     const [filters, setFilters] = useState({
         startDate: '',
         endDate: '',
@@ -23,6 +26,7 @@ const SavdolarTarixi = () => {
         sellerId: '',
     });
     const receiptRef = useRef<HTMLDivElement>(null);
+    const tableRef = useRef<HTMLDivElement>(null);
 
     const handlePrint = () => {
       const printableContent = receiptRef.current?.innerHTML;
@@ -68,9 +72,39 @@ const SavdolarTarixi = () => {
         setModalOpen(true);
     };
 
+    const handleEditSale = (sale: Sale) => {
+        setSelectedSale(sale);
+        setEditFormData({
+            customerId: sale.customerId || '',
+            discount: Number(sale.discount) || 0,
+        });
+        setIsEditModalOpen(true);
+    };
+
     const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         setFilters(prev => ({...prev, [e.target.name]: e.target.value}));
     };
+
+    // Implement keyboard navigation
+    const { focusedIndex, isKeyboardMode, moveFocus, resetFocus } = useKeyboardNavigation(filteredSales);
+
+    // Handle keyboard events for the table
+    useEffect(() => {
+        const handleTableKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Enter' && focusedIndex >= 0 && focusedIndex < filteredSales.length) {
+                e.preventDefault();
+                handleViewReceipt(filteredSales[focusedIndex]);
+            }
+        };
+
+        const table = tableRef.current;
+        if (table) {
+            table.addEventListener('keydown', handleTableKeyDown as EventListener);
+            return () => {
+                table.removeEventListener('keydown', handleTableKeyDown as EventListener);
+            };
+        }
+    }, [focusedIndex, filteredSales, handleViewReceipt]);
 
     if (!settings) return <div>Yuklanmoqda...</div>;
 
@@ -89,7 +123,7 @@ const SavdolarTarixi = () => {
                     {employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
                 </select>
             </div>
-             <div className="bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-x-auto">
+             <div ref={tableRef} className="bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-x-auto" tabIndex={0}>
                 <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
                     <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
                         <tr>
@@ -103,8 +137,15 @@ const SavdolarTarixi = () => {
                         </tr>
                     </thead>
                     <tbody>
-                        {filteredSales.map(sale => (
-                            <tr key={sale.id} className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+                        {filteredSales.map((sale, index) => (
+                            <tr 
+                                key={sale.id} 
+                                className={`bg-white dark:bg-gray-800 border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 ${
+                                    isKeyboardMode && index === focusedIndex 
+                                        ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-gray-700' 
+                                        : ''
+                                }`}
+                            >
                                 <td className="px-6 py-4 font-mono text-xs">{sale.id.slice(-6)}</td>
                                 <td className="px-6 py-4">{new Date(sale.date).toLocaleString('uz-UZ')}</td>
                                 <td className="px-6 py-4 font-medium">{sale.customer?.name || 'Umumiy'}</td>
@@ -112,7 +153,12 @@ const SavdolarTarixi = () => {
                                 <td className="px-6 py-4 font-bold">{Number(sale.total).toLocaleString()} {settings.currency}</td>
                                 <td className="px-6 py-4">{sale.payments.map(p => paymentTypeLabels[p.type]).join(', ')}</td>
                                 <td className="px-6 py-4 text-right">
-                                    <button onClick={() => handleViewReceipt(sale)} className="p-1 text-blue-600 hover:text-blue-800"><Eye size={18} /></button>
+                                    <button onClick={() => handleEditSale(sale)} className="p-1 text-yellow-600 hover:text-yellow-800 mr-2">
+                                        <Edit size={18} />
+                                    </button>
+                                    <button onClick={() => handleViewReceipt(sale)} className="p-1 text-blue-600 hover:text-blue-800">
+                                        <Eye size={18} />
+                                    </button>
                                 </td>
                             </tr>
                         ))}
@@ -131,6 +177,52 @@ const SavdolarTarixi = () => {
                             <button onClick={handlePrint} className="w-full py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center">
                                 <Printer size={18} className="mr-2" />
                                 Chop etish
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </Modal>
+            
+            {/* Edit Modal */}
+            <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title="Savdoni Tahrirlash">
+                {selectedSale && (
+                    <div className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Mijoz</label>
+                                <select 
+                                    value={editFormData.customerId || ''}
+                                    onChange={(e) => setEditFormData({...editFormData, customerId: e.target.value})}
+                                    className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                                >
+                                    <option value="">Umumiy mijoz</option>
+                                    {customers.map(customer => (
+                                        <option key={customer.id} value={customer.id}>{customer.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Chegirma</label>
+                                <input 
+                                    type="number" 
+                                    value={editFormData.discount || 0}
+                                    onChange={(e) => setEditFormData({...editFormData, discount: Number(e.target.value)})}
+                                    className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
+                                />
+                            </div>
+                        </div>
+                        <div className="flex justify-end space-x-2 pt-4 border-t dark:border-gray-600">
+                            <button 
+                                onClick={() => setIsEditModalOpen(false)} 
+                                className="px-4 py-2 bg-gray-300 text-gray-800 dark:bg-gray-600 dark:text-gray-200 rounded-lg hover:bg-gray-400 dark:hover:bg-gray-500"
+                            >
+                                Bekor qilish
+                            </button>
+                            <button 
+                                onClick={() => alert("Savdoni tahrirlash hozircha mavjud emas. Backend API yangilanishi kerak.")}
+                                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                            >
+                                Saqlash
                             </button>
                         </div>
                     </div>

@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext.tsx';
 import { Customer, PaymentType } from '../types.ts';
 import Modal from '../components/Modal.tsx';
 import { PlusCircle, Edit, Trash2, Eye } from 'lucide-react';
+import { useKeyboardNavigation } from '../hooks/useKeyboardNavigation.ts';
 
 const CustomerForm: React.FC<{ customer?: Customer; onSave: (customer: Partial<Customer>) => void; onClose: () => void }> = ({ customer, onSave, onClose }) => {
     const [formData, setFormData] = useState({ name: customer?.name || '', phone: customer?.phone || '', address: customer?.address || '' });
@@ -122,6 +123,7 @@ const Mijozlar = () => {
     const [isPaymentModalOpen, setPaymentModalOpen] = useState(false);
     const [selectedCustomer, setSelectedCustomer] = useState<Customer | undefined>(undefined);
     const [searchTerm, setSearchTerm] = useState('');
+    const tableRef = useRef<HTMLDivElement>(null);
 
     const handleOpenFormModal = (customer?: Customer) => { setSelectedCustomer(customer); setFormModalOpen(true); };
     const handleOpenDetailsModal = (customer: Customer) => { setSelectedCustomer(customer); setDetailsModalOpen(true); };
@@ -142,6 +144,32 @@ const Mijozlar = () => {
     };
 
     const filteredCustomers = customers.filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase()));
+    
+    // Implement keyboard navigation
+    const { focusedIndex, isKeyboardMode, moveFocus, resetFocus } = useKeyboardNavigation(filteredCustomers);
+
+    // Handle keyboard events for the table
+    useEffect(() => {
+        const handleTableKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Enter' && focusedIndex >= 0 && focusedIndex < filteredCustomers.length) {
+                e.preventDefault();
+                handleOpenDetailsModal(filteredCustomers[focusedIndex]);
+            }
+        };
+
+        const table = tableRef.current;
+        if (table) {
+            table.addEventListener('keydown', handleTableKeyDown as EventListener);
+            return () => {
+                table.removeEventListener('keydown', handleTableKeyDown as EventListener);
+            };
+        }
+    }, [focusedIndex, filteredCustomers, handleOpenDetailsModal]);
+
+    // Reset focus when search term changes
+    useEffect(() => {
+        resetFocus();
+    }, [searchTerm, resetFocus]);
 
     return (
         <div className="space-y-4">
@@ -152,7 +180,7 @@ const Mijozlar = () => {
                     Yangi mijoz
                 </button>
             </div>
-            <div className="bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-x-auto">
+            <div ref={tableRef} className="bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-x-auto" tabIndex={0}>
                 <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
                     <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
                         <tr>
@@ -163,8 +191,15 @@ const Mijozlar = () => {
                         </tr>
                     </thead>
                     <tbody>
-                        {filteredCustomers.map(c => (
-                            <tr key={c.id} className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+                        {filteredCustomers.map((c, index) => (
+                            <tr 
+                                key={c.id} 
+                                className={`bg-white dark:bg-gray-800 border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 ${
+                                    isKeyboardMode && index === focusedIndex 
+                                        ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-gray-700' 
+                                        : ''
+                                }`}
+                            >
                                 <td className="px-6 py-4 font-medium text-gray-900 dark:text-white whitespace-nowrap">{c.name}</td>
                                 <td className="px-6 py-4">{c.phone}</td>
                                 <td className={`px-6 py-4 font-bold ${Number(c.debt) > 0 ? 'text-red-500' : 'text-green-500'}`}>{Number(c.debt).toLocaleString()} so'm</td>

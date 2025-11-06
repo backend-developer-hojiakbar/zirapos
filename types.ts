@@ -190,5 +190,6 @@ export interface StoreSettings {
     receiptShowSeller: boolean;
     receiptShowCustomer: boolean;
     receiptShowQR: boolean;
+    location?: string; // Added location field
     id: string;
 }

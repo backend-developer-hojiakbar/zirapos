@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useAppContext } from '../context/AppContext.tsx';
-import { Link } from 'react-router-dom';
 
 interface QRCodeProps {
   saleId: string;
@@ -67,41 +66,46 @@ const QRCodeComponent: React.FC<QRCodeProps> = ({ saleId, storeId, totalAmount, 
   }, [isScanning]);
 
   return (
-    <div className="mt-2">
-      <QRCodeSVG
-        value={qrString}
-        size={100}
-        level="H"
-        includeMargin={true}
-        className="mb-2"
-        title="Chek QR kodi"
-      />
-      
-      <div className="text-center text-xs mb-2">
-        <button 
-          onClick={() => setIsScanning(!isScanning)}
-          className="px-2 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600"
-        >
-          {isScanning ? 'Toxtatish' : 'QR kodni skanerlash'}
-        </button>
+    <div className="mt-2 flex flex-col items-center">
+      <div className="flex flex-col items-center justify-center p-3 bg-white rounded-xl border-2 border-blue-200 shadow-sm">
+        <QRCodeSVG
+          value={qrString}
+          size={90}
+          level="H"
+          includeMargin={true}
+          className="mb-2"
+          title="Chek QR kodi"
+        />
+        
+        <div className="text-center">
+          <p className="text-xs font-bold text-blue-700 mb-1">SOLIQ INSPEKTSIYASI</p>
+          <p className="text-xs text-gray-600 mb-1">Ushbu chek soliq.uz saytida</p>
+          <p className="text-xs text-gray-600 mb-2">tasdiqlangan elektron hujjat</p>
+          
+          <button 
+            onClick={() => setIsScanning(!isScanning)}
+            className="px-3 py-1 bg-blue-600 text-white rounded-lg text-xs hover:bg-blue-700 transition-colors font-medium shadow-sm"
+          >
+            {isScanning ? "To'xtatish" : 'QR kodni skanerlash'}
+          </button>
+        </div>
       </div>
 
       {isScanning && (
-        <div className="mt-2">
+        <div className="mt-3 p-2 bg-gray-100 rounded-lg border border-gray-200 w-full">
           <div className="relative w-full">
-            <video ref={videoRef} className="w-full" autoPlay playsInline />
+            <video ref={videoRef} className="w-full rounded-lg" autoPlay playsInline />
             <canvas ref={canvasRef} className="absolute top-0 left-0 w-full h-full opacity-0" />
           </div>
+          <p className="text-center text-xs text-gray-600 mt-2">QR kodni kameraga to'g'ri yo'naltiring</p>
         </div>
       )}
 
       {scannedData && (
-        <div className="mt-2 text-center text-xs">
-          <p>Skanerlangan ma''lumot: {scannedData}</p>
+        <div className="mt-2 p-2 bg-green-50 rounded-lg border border-green-200 w-full">
+          <p className="text-center text-xs text-green-700">Skanerlangan ma'lumot: {scannedData}</p>
         </div>
       )}
-
-      <p className="text-center text-xs mt-2">Scan QR kodni soliq.uz saytiga kirish uchun</p>
     </div>
   );
 };

@@ -1,8 +1,9 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext.tsx';
 import { PaymentType, Permission } from '../types.ts';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 import { Download, TrendingUp, DollarSign, ShoppingCart, Receipt, AlertCircle } from 'lucide-react';
+import { useKeyboardNavigation } from '../hooks/useKeyboardNavigation.ts';
 
 const COLORS = ['#0ea5e9', '#10b981', '#f97316', '#ef4444', '#8b5cf6'];
 
@@ -64,6 +65,7 @@ const Hisobotlar = () => {
     end: new Date().toISOString().split('T')[0],
   });
   const [selectedSellerId, setSelectedSellerId] = useState('');
+  const topProductsRef = useRef<HTMLDivElement>(null);
 
   const sellers = useMemo(() => {
     return employees.filter(e => {
@@ -159,6 +161,9 @@ const Hisobotlar = () => {
     return Object.values(productSales).sort((a,b) => b.revenue - a.revenue).slice(0, 10);
   }, [filteredSales, products]);
   
+  // Implement keyboard navigation for top products
+  const { focusedIndex, isKeyboardMode, moveFocus } = useKeyboardNavigation(topProducts);
+
   const salesBySeller = useMemo(() => {
       const sellerSales: { [key: string]: { name: string, total: number } } = {};
       filteredSales.forEach(sale => {
@@ -201,87 +206,71 @@ const Hisobotlar = () => {
             </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
-            <StatCard title="Umumiy savdo" value={`${stats.totalSales.toLocaleString()}`} icon={TrendingUp} color="bg-sky-500" />
-            <StatCard title="Sof foyda" value={`${stats.profit.toLocaleString()}`} icon={DollarSign} color="bg-green-500" />
-            <StatCard title="Savdolar soni" value={stats.saleCount.toLocaleString()} icon={ShoppingCart} color="bg-orange-500" />
-            <StatCard title="O'rtacha chek" value={`${stats.averageCheck.toLocaleString(undefined, {maximumFractionDigits: 0})}`} icon={Receipt} color="bg-indigo-500" />
-            <StatCard title="Mijozlar qarzi" value={`${stats.totalDebt.toLocaleString()}`} icon={AlertCircle} color="bg-red-500" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <StatCard title="Jami savdo" value={`${stats.totalSales.toLocaleString()} ${settings.currency}`} icon={TrendingUp} color="bg-blue-500" />
+            <StatCard title="Foyda" value={`${stats.profit.toLocaleString()} ${settings.currency}`} icon={DollarSign} color="bg-green-500" />
+            <StatCard title="Cheklar soni" value={stats.saleCount.toString()} icon={Receipt} color="bg-purple-500" />
+            <StatCard title="Umumiy qarz" value={`${stats.totalDebt.toLocaleString()} ${settings.currency}`} icon={AlertCircle} color="bg-red-500" />
         </div>
-
-        <ReportCard title="Kunlik Savdo va Foyda Dinamikasi">
-            <ResponsiveContainer width="100%" height={350}>
-                <LineChart data={salesByDay} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
-                    <XAxis dataKey="date" />
-                    <YAxis tickFormatter={(value: number) => new Intl.NumberFormat('uz-UZ').format(value)} />
-                    <Tooltip formatter={(value: number, name) => [`${value.toLocaleString()} ${settings.currency}`, name === 'savdo' ? 'Savdo' : 'Foyda']} />
-                    <Legend />
-                    <Line type="monotone" dataKey="savdo" stroke="#3b82f6" strokeWidth={2} activeDot={{ r: 8 }} />
-                    <Line type="monotone" dataKey="foyda" stroke="#22c55e" strokeWidth={2} activeDot={{ r: 8 }}/>
-                </LineChart>
-            </ResponsiveContainer>
-        </ReportCard>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-             <ReportCard title="Eng Ko'p Sotilgan Mahsulotlar">
+            <ReportCard title="Kunlik savdo dinamikasi">
                 <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={topProducts} layout="vertical" margin={{ top: 0, right: 30, left: 100, bottom: 0 }}>
-                        <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
-                        <XAxis type="number" tickFormatter={(value: number) => new Intl.NumberFormat('uz-UZ').format(value)} />
-                        <YAxis type="category" dataKey="name" width={100} interval={0} tick={{fontSize: 12}} />
-                        <Tooltip formatter={(value: number) => `${value.toLocaleString()} ${settings.currency}`} />
-                        <Bar dataKey="revenue" fill="#22c55e" name="Tushum" />
-                    </BarChart>
+                    <LineChart data={salesByDay}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="date" />
+                        <YAxis />
+                        <Tooltip formatter={(value) => [`${Number(value).toLocaleString()} ${settings.currency}`, '']} />
+                        <Legend />
+                        <Line type="monotone" dataKey="savdo" stroke="#3b82f6" name="Savdo" />
+                        <Line type="monotone" dataKey="foyda" stroke="#10b981" name="Foyda" />
+                    </LineChart>
                 </ResponsiveContainer>
             </ReportCard>
-            <ReportCard title="Sotuvchilar Bo'yicha Savdo">
-                 <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={salesBySeller} layout="vertical" margin={{ top: 0, right: 30, left: 50, bottom: 0 }}>
-                        <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
-                        <XAxis type="number" tickFormatter={(value: number) => new Intl.NumberFormat('uz-UZ').format(value)} />
-                        <YAxis type="category" dataKey="name" width={80} interval={0} tick={{fontSize: 12}} />
-                        <Tooltip formatter={(value: number) => `${value.toLocaleString()} ${settings.currency}`} />
-                        <Bar dataKey="total" fill="#8b5cf6" name="Jami savdo" />
-                    </BarChart>
-                </ResponsiveContainer>
-            </ReportCard>
-        </div>
-
-         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <ReportCard title="To'lov Turlari Bo'yicha">
-                 <ResponsiveContainer width="100%" height={300}>
+            
+            <ReportCard title="To'lov turlari bo'yicha savdo">
+                <ResponsiveContainer width="100%" height={300}>
                     <PieChart>
-                        <Pie data={salesByPaymentType} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={60} outerRadius={100} labelLine={false} label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`}>
-                             {salesByPaymentType.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
+                        <Pie data={salesByPaymentType} cx="50%" cy="50%" labelLine={false} outerRadius={80} fill="#8884d8" dataKey="value" nameKey="name" label={({name, percent}) => `${name} ${percent ? (percent * 100).toFixed(0) : '0'}%`}>
+                            {salesByPaymentType.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
                         </Pie>
-                        <Tooltip formatter={(value: number) => `${value.toLocaleString()} ${settings.currency}`} />
+                        <Tooltip formatter={(value) => [`${Number(value).toLocaleString()} ${settings.currency}`, '']} />
                         <Legend />
                     </PieChart>
                 </ResponsiveContainer>
             </ReportCard>
-            <ReportCard title="Minimal Qoldiqdan Kam Mahsulotlar">
-                 <div className="max-h-[250px] overflow-y-auto">
-                    {lowStockProducts.length > 0 ? (
-                        <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
-                            <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400 sticky top-0">
-                                <tr>
-                                    <th className="px-4 py-2">Nomi</th>
-                                    <th className="px-4 py-2 text-right">Qoldiq / Minimal</th>
-                                </tr>
-                            </thead>
-                            <tbody>{lowStockProducts.map(p => (
-                                <tr key={p.id} className="border-b dark:border-gray-700">
-                                    <td className="px-4 py-2 font-medium">{p.name}</td>
-                                    <td className="px-4 py-2 text-right">
-                                        <span className="font-bold text-red-500">{p.stock}</span>
-                                        <span className="text-gray-500"> / {p.minStock} {p.unit}</span>
-                                    </td>
-                                </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    ) : <p className="text-center py-4 text-gray-500 dark:text-gray-400">Kam qolgan mahsulotlar yo'q.</p>}
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <ReportCard title="Eng yaxshi sotiladigan mahsulotlar">
+                <div ref={topProductsRef} className="space-y-3 max-h-80 overflow-y-auto" tabIndex={0}>
+                    {topProducts.map((product, index) => (
+                        <div 
+                            key={product.name} 
+                            className={`flex justify-between items-center p-3 rounded-lg ${
+                                isKeyboardMode && index === focusedIndex 
+                                    ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-gray-700' 
+                                    : 'bg-gray-50 dark:bg-gray-700/50'
+                            }`}
+                        >
+                            <span className="font-medium">{product.name}</span>
+                            <div className="text-right">
+                                <p className="font-semibold">{product.revenue.toLocaleString()} {settings.currency}</p>
+                                <p className="text-sm text-gray-500 dark:text-gray-400">{product.quantity} dona</p>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </ReportCard>
+            
+            <ReportCard title="Sotuvchilar bo'yicha savdo">
+                <div className="space-y-3 max-h-80 overflow-y-auto">
+                    {salesBySeller.map(seller => (
+                        <div key={seller.name} className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                            <span className="font-medium">{seller.name}</span>
+                            <span className="font-semibold">{seller.total.toLocaleString()} {settings.currency}</span>
+                        </div>
+                    ))}
                 </div>
             </ReportCard>
         </div>

@@ -76,6 +76,10 @@ const Sozlamalar = () => {
                             <input type="text" name="address" value={formData.address || ''} onChange={handleChange} className="mt-1 block w-full p-2 border-gray-300 dark:border-gray-600 rounded-md shadow-sm dark:bg-gray-700"/>
                         </div>
                         <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Lokatsiya</label>
+                            <input type="text" name="location" value={formData.location || ''} onChange={handleChange} placeholder="Masalan: Benazir" className="mt-1 block w-full p-2 border-gray-300 dark:border-gray-600 rounded-md shadow-sm dark:bg-gray-700"/>
+                        </div>
+                        <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Telefon raqami</label>
                             <input type="text" name="phone" value={formData.phone || ''} onChange={handleChange} className="mt-1 block w-full p-2 border-gray-300 dark:border-gray-600 rounded-md shadow-sm dark:bg-gray-700"/>
                         </div>

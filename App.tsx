@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import { HashRouter, Route, Routes, Navigate, useLocation, Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { AppProvider, useAppContext } from './context/AppContext.tsx';
 import { LayoutDashboard, Terminal, History, Package, Barcode, Users, Truck, BarChart2, UsersRound, Settings, Lock, Warehouse as WarehouseIcon } from 'lucide-react';
@@ -15,6 +15,7 @@ import Sozlamalar from './pages/Sozlamalar.tsx';
 import LoginPage from './pages/LoginPage.tsx';
 import Hodimlar from './pages/Hodimlar.tsx';
 import { Permission } from './types.ts';
+import { useKeyboardNavigation } from './hooks/useKeyboardNavigation.ts';
 
 const navLinks = [
   { path: '/', label: "Boshqaruv Paneli", icon: LayoutDashboard, permission: Permission.VIEW_DASHBOARD },
@@ -33,6 +34,7 @@ const navLinks = [
 const Sidebar = () => {
   const { currentUser, logout, roles } = useAppContext();
   const navigate = useNavigate();
+  const sidebarRef = useRef<HTMLDivElement>(null);
 
   const handleLogout = () => {
     logout();
@@ -41,8 +43,40 @@ const Sidebar = () => {
   
   const currentUserRoleName = currentUser?.role?.name || 'Noma\'lum rol';
 
+  // Implement keyboard navigation for sidebar
+  const { focusedIndex, isKeyboardMode, moveFocus } = useKeyboardNavigation(
+    navLinks.filter(link => {
+      const { hasPermission } = useAppContext();
+      return hasPermission(link.permission);
+    })
+  );
+
+  // Handle keyboard events for the sidebar
+  useEffect(() => {
+    const handleSidebarKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Enter' && focusedIndex >= 0) {
+        e.preventDefault();
+        const navItems = navLinks.filter(link => {
+          const { hasPermission } = useAppContext();
+          return hasPermission(link.permission);
+        });
+        if (focusedIndex < navItems.length) {
+          navigate(navItems[focusedIndex].path);
+        }
+      }
+    };
+
+    const sidebar = sidebarRef.current;
+    if (sidebar) {
+      sidebar.addEventListener('keydown', handleSidebarKeyDown as EventListener);
+      return () => {
+        sidebar.removeEventListener('keydown', handleSidebarKeyDown as EventListener);
+      };
+    }
+  }, [focusedIndex, navigate]);
+
   return (
-    <div className="w-72 bg-white dark:bg-gray-800 shadow-lg flex flex-col h-screen fixed">
+    <div ref={sidebarRef} className="w-72 bg-white dark:bg-gray-800 shadow-lg flex flex-col h-screen fixed" tabIndex={0}>
       <div className="p-6 border-b border-gray-200 dark:border-gray-700">
         <h1 className="text-3xl font-bold text-blue-600 dark:text-blue-400">Optom POS</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400">Savdo boshqaruv tizimi</p>
@@ -55,7 +89,7 @@ const Sidebar = () => {
         {navLinks.filter(link => {
             const { hasPermission } = useAppContext();
             return hasPermission(link.permission);
-        }).map((link) => (
+        }).map((link, index) => (
           <NavLink
             key={link.path}
             to={link.path}
@@ -65,6 +99,10 @@ const Sidebar = () => {
                 isActive
                   ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-white'
                   : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white'
+              } ${
+                isKeyboardMode && index === focusedIndex 
+                  ? 'ring-2 ring-blue-500' 
+                  : ''
               }`
             }
           >

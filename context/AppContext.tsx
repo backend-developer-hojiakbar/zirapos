@@ -33,9 +33,10 @@ interface AppContextType {
     stockMovements: StockMovement[];
     warehouses: Warehouse[]; // Add this line
     warehouseProducts: WarehouseProduct[]; // Add this line
-    addProductToCart: (product: Product, quantity: number) => void;
+    addProductToCart: (product: Product, quantity: number, isWholesale?: boolean, wholesalePrice?: number) => void;
     removeProductFromCart: (productId: string) => void;
     updateCartItemQuantity: (productId: string, quantity: number) => void;
+    updateCartItemPrice: (productId: string, price: number) => void; // New function
     saveSale: (sale: Sale) => Promise<Sale>;
     setSearchTerm: (term: string) => void;
     setSearchResults: (results: Product[]) => void;
@@ -118,17 +119,26 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
     const [isAddCustomerModalOpen, setIsAddCustomerModalOpen] = useState(false);
 
-    const addProductToCart = useCallback((product: Product, quantity: number) => {
+    const addProductToCart = useCallback((product: Product, quantity: number, isWholesale: boolean = false, wholesalePrice?: number) => {
         setCart(prev => {
             const existingItem = prev.find(item => item.product.id === product.id);
             if (existingItem) {
                 return prev.map(item => 
                     item.product.id === product.id 
-                        ? { ...item, quantity: item.quantity + quantity }
+                        ? { 
+                            ...item, 
+                            quantity: item.quantity + quantity,
+                            price: isWholesale && wholesalePrice !== undefined ? wholesalePrice : item.price
+                        }
                         : item
                 );
             }
-            return [...prev, { productId: product.id, product, quantity, price: product.salePrice }];
+            return [...prev, { 
+                productId: product.id, 
+                product, 
+                quantity, 
+                price: isWholesale && wholesalePrice !== undefined ? wholesalePrice : product.salePrice 
+            }];
         });
     }, []);
 
@@ -141,6 +151,17 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             prev.map(item => 
                 item.product.id === productId 
                     ? { ...item, quantity }
+                    : item
+            )
+        );
+    }, []);
+
+    // New function to update cart item price
+    const updateCartItemPrice = useCallback((productId: string, price: number) => {
+        setCart(prev => 
+            prev.map(item => 
+                item.product.id === productId 
+                    ? { ...item, price }
                     : item
             )
         );
@@ -299,6 +320,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         addProductToCart,
         removeProductFromCart,
         updateCartItemQuantity,
+        updateCartItemPrice, // Add new function
         saveSale,
         setSearchTerm,
         setSearchResults,

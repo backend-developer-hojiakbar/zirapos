@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext.tsx';
 import { Product } from '../types.ts';
 import Modal from '../components/Modal.tsx';
 import { PlusCircle, Edit, Trash2, AlertTriangle } from 'lucide-react';
+import { useKeyboardNavigation } from '../hooks/useKeyboardNavigation.ts';
 
 const ProductForm: React.FC<{ product?: Product; onSave: (product: Partial<Product>) => void; onClose: () => void }> = ({ product, onSave, onClose }) => {
     const { units, addUnit } = useAppContext();
@@ -118,6 +119,7 @@ const Mahsulotlar = () => {
     const [isModalOpen, setModalOpen] = useState(false);
     const [editingProduct, setEditingProduct] = useState<Product | undefined>(undefined);
     const [searchTerm, setSearchTerm] = useState('');
+    const tableRef = useRef<HTMLDivElement>(null);
 
     const handleOpenModal = (product?: Product) => {
         setEditingProduct(product);
@@ -149,6 +151,32 @@ const Mahsulotlar = () => {
     };
 
     const filteredProducts = products.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
+    
+    // Implement keyboard navigation
+    const { focusedIndex, isKeyboardMode, moveFocus, resetFocus } = useKeyboardNavigation(filteredProducts);
+
+    // Handle keyboard events for the table
+    useEffect(() => {
+        const handleTableKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Enter' && focusedIndex >= 0 && focusedIndex < filteredProducts.length) {
+                e.preventDefault();
+                handleOpenModal(filteredProducts[focusedIndex]);
+            }
+        };
+
+        const table = tableRef.current;
+        if (table) {
+            table.addEventListener('keydown', handleTableKeyDown as EventListener);
+            return () => {
+                table.removeEventListener('keydown', handleTableKeyDown as EventListener);
+            };
+        }
+    }, [focusedIndex, filteredProducts, handleOpenModal]);
+
+    // Reset focus when search term changes
+    useEffect(() => {
+        resetFocus();
+    }, [searchTerm, resetFocus]);
 
     if (!settings) return <div>Yuklanmoqda...</div>;
 
@@ -167,7 +195,7 @@ const Mahsulotlar = () => {
                     Yangi mahsulot
                 </button>
             </div>
-            <div className="bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-x-auto">
+            <div ref={tableRef} className="bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-x-auto" tabIndex={0}>
                 <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
                     <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
                         <tr>
@@ -180,8 +208,16 @@ const Mahsulotlar = () => {
                         </tr>
                     </thead>
                     <tbody>
-                        {filteredProducts.map(p => (
-                            <tr key={p.id} className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+                        {filteredProducts.map((p, index) => (
+                            <tr 
+                                key={p.id} 
+                                className={`bg-white dark:bg-gray-800 border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 ${
+                                    isKeyboardMode && index === focusedIndex 
+                                        ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-gray-700' 
+                                        : ''
+                                }`}
+                                onClick={() => handleOpenModal(p)}
+                            >
                                 <td className="px-6 py-4 font-medium text-gray-900 dark:text-white whitespace-nowrap">{p.name}</td>
                                 <td className="px-6 py-4">{Number(p.salePrice).toLocaleString()} {settings.currency}</td>
                                 <td className="px-6 py-4">{Number(p.purchasePrice).toLocaleString()} {settings.currency}</td>
@@ -195,8 +231,8 @@ const Mahsulotlar = () => {
                                     </span>
                                 </td>
                                 <td className="px-6 py-4 text-right">
-                                    <button onClick={() => handleOpenModal(p)} className="p-1 text-blue-600 hover:text-blue-800"><Edit size={18} /></button>
-                                    <button onClick={() => handleDeleteProduct(p.id)} className="p-1 text-red-600 hover:text-red-800 ml-2"><Trash2 size={18} /></button>
+                                    <button onClick={(e) => { e.stopPropagation(); handleOpenModal(p); }} className="p-1 text-blue-600 hover:text-blue-800"><Edit size={18} /></button>
+                                    <button onClick={(e) => { e.stopPropagation(); handleDeleteProduct(p.id); }} className="p-1 text-red-600 hover:text-red-800 ml-2"><Trash2 size={18} /></button>
                                 </td>
                             </tr>
                         ))}
