@@ -382,7 +382,20 @@ const Savdo = () => {
                                         : ''
                                 }`}
                             >
-                                <td className="px-6 py-4 font-medium text-gray-900 dark:text-white whitespace-nowrap">{product.name}</td>
+                                <td className="px-6 py-4 font-medium text-gray-900 dark:text-white whitespace-nowrap">
+                                    {product.image && (
+                                        <img 
+                                            src={product.image.startsWith('/media/') ? `http://127.0.0.1:8000${product.image}` : `http://127.0.0.1:8000/media/${product.image}`} 
+                                            alt={product.name} 
+                                            className="w-8 h-8 object-cover inline-block mr-2 rounded" 
+                                            onError={(e) => {
+                                                console.error('Image failed to load:', product.image);
+                                                e.currentTarget.style.display = 'none';
+                                            }}
+                                        />
+                                    )}
+                                    {product.name}
+                                </td>
                                 <td className={`px-6 py-4 ${product.stock <= product.minStock ? 'text-red-500 font-bold' : ''}`}>{product.stock} {product.unit}</td>
                                 <td className="px-6 py-4 font-bold text-blue-600 dark:text-blue-400">{Number(product.salePrice).toLocaleString()}</td>
                                 <td className="px-6 py-4">

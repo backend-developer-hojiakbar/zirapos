@@ -274,15 +274,55 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     };
 
     const addEntity = async <T,>(entityName: string, entityData: Partial<T>) => {
-        const { data } = await api.post<T>(`/${entityName}/`, entityData);
+        let response;
+        
+        // Check if we need to send as FormData for file uploads
+        if (entityData.hasOwnProperty('image') && entityData.image instanceof File) {
+            const formData = new FormData();
+            Object.keys(entityData).forEach(key => {
+                const value = entityData[key as keyof typeof entityData];
+                if (value !== undefined && value !== null) {
+                    formData.append(key, value as Blob | string);
+                }
+            });
+            
+            response = await api.post<T>(`/${entityName}/`, formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data'
+                }
+            });
+        } else {
+            response = await api.post<T>(`/${entityName}/`, entityData);
+        }
+        
         await fetchInitialData();
-        return data;
+        return response.data;
     }
 
     const updateEntity = async <T,>(entityName: string, id: string, entityData: Partial<T>) => {
-        const { data } = await api.put<T>(`/${entityName}/${id}/`, entityData);
+        let response;
+        
+        // Check if we need to send as FormData for file uploads
+        if (entityData.hasOwnProperty('image') && entityData.image instanceof File) {
+            const formData = new FormData();
+            Object.keys(entityData).forEach(key => {
+                const value = entityData[key as keyof typeof entityData];
+                if (value !== undefined && value !== null) {
+                    formData.append(key, value as Blob | string);
+                }
+            });
+            
+            response = await api.put<T>(`/${entityName}/${id}/`, formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data'
+                }
+            });
+        } else {
+            response = await api.put<T>(`/${entityName}/${id}/`, entityData);
+        }
+        
         await fetchInitialData();
-        return data;
+        return response.data;
     }
     
     const deleteEntity = async (entityName: string, id: string) => {
@@ -356,8 +396,56 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         addRole: (data: Partial<Role>) => addEntity('roles', data),
         updateRole: (id: string, data: Partial<Role>) => updateEntity('roles', id, data),
         deleteRole: (id: string) => deleteEntity('roles', id),
-        addProduct: (data: Partial<Product>) => addEntity('products', data),
-        updateProduct: (id: string, data: Partial<Product>) => updateEntity('products', id, data),
+        addProduct: async (data: Partial<Product>) => {
+            let response;
+            
+            // Check if image is a File object for product
+            if (data.image instanceof File) {
+                const formData = new FormData();
+                Object.keys(data).forEach(key => {
+                    const value = data[key as keyof typeof data];
+                    if (value !== undefined && value !== null) {
+                        formData.append(key, value as Blob | string);
+                    }
+                });
+                
+                response = await api.post<Product>(`/products/`, formData, {
+                    headers: {
+                        'Content-Type': 'multipart/form-data'
+                    }
+                });
+            } else {
+                response = await api.post<Product>(`/products/`, data);
+            }
+            
+            await fetchInitialData();
+            return response.data;
+        },
+        updateProduct: async (id: string, data: Partial<Product>) => {
+            let response;
+            
+            // Check if image is a File object for product
+            if (data.image instanceof File) {
+                const formData = new FormData();
+                Object.keys(data).forEach(key => {
+                    const value = data[key as keyof typeof data];
+                    if (value !== undefined && value !== null) {
+                        formData.append(key, value as Blob | string);
+                    }
+                });
+                
+                response = await api.put<Product>(`/products/${id}/`, formData, {
+                    headers: {
+                        'Content-Type': 'multipart/form-data'
+                    }
+                });
+            } else {
+                response = await api.put<Product>(`/products/${id}/`, data);
+            }
+            
+            await fetchInitialData();
+            return response.data;
+        },
         deleteProduct: (id: string) => deleteEntity('products', id),
         addCustomer: (data: Partial<Customer>) => addEntity('customers', data),
         updateCustomer: (id: string, data: Partial<Customer>) => updateEntity('customers', id, data),

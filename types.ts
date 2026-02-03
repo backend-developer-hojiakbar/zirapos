@@ -40,16 +40,17 @@ export interface Employee {
 }
 
 export interface Product {
-  id: string;
-  name: string;
-  barcode?: string;
-  unit: string;
-  purchasePrice: number;
-  salePrice: number;
-  stock: number;
-  minStock: number;
-  description?: string;
-  status: 'active' | 'archived';
+    id: string;
+    name: string;
+    barcode?: string;
+    unit: string;
+    purchasePrice: number;
+    salePrice: number;
+    stock: number;
+    minStock: number;
+    description?: string;
+    status: 'active' | 'archived';
+    image?: string;
 }
 
 export interface Supplier {

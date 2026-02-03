@@ -8,6 +8,10 @@ import { useKeyboardNavigation } from '../hooks/useKeyboardNavigation.ts';
 const ProductForm: React.FC<{ product?: Product; onSave: (product: Partial<Product>) => void; onClose: () => void }> = ({ product, onSave, onClose }) => {
     const { units, addUnit } = useAppContext();
     const [isUnitModalOpen, setUnitModalOpen] = useState(false);
+    const [imagePreview, setImagePreview] = useState<string | null>(product?.image || null);
+    const [imageFile, setImageFile] = useState<File | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    
     const [formData, setFormData] = useState<Partial<Product>>({
         name: product?.name || '',
         barcode: product?.barcode || '',
@@ -18,6 +22,7 @@ const ProductForm: React.FC<{ product?: Product; onSave: (product: Partial<Produ
         minStock: product?.minStock || 10,
         status: product?.status || 'active',
         description: product?.description || '',
+        image: product?.image || '',  // Added image field
     });
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -26,9 +31,42 @@ const ProductForm: React.FC<{ product?: Product; onSave: (product: Partial<Produ
         setFormData(prev => ({ ...prev, [name]: isNumber ? (value ? parseFloat(value) : 0) : value }));
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            setImageFile(file);
+            
+            // Create preview URL
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setImagePreview(reader.result as string);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const handleRemoveImage = () => {
+        setImagePreview(null);
+        setImageFile(null);
+        setFormData(prev => ({ ...prev, image: '' }));
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        onSave(formData);
+        
+        // Prepare form data with image
+        const submitData = { ...formData };
+        
+        // Handle image submission
+        if (imageFile) {
+            // Add the file object directly to the submit data
+            submitData.image = imageFile;
+        }
+        
+        onSave(submitData);
     };
     
     const handleSaveNewUnit = async (newUnitName: string) => {
@@ -78,6 +116,34 @@ const ProductForm: React.FC<{ product?: Product; onSave: (product: Partial<Produ
                     </div>
                 </div>
                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Rasm</label>
+                    <div className="flex items-center space-x-4">
+                        <input 
+                            type="file" 
+                            accept="image/*" 
+                            onChange={handleImageChange} 
+                            ref={fileInputRef}
+                            className="mt-1 block w-full border-gray-300 dark:border-gray-600 rounded-md shadow-sm dark:bg-gray-700"
+                        />
+                        {imagePreview && (
+                            <div className="relative">
+                                <img 
+                                    src={imagePreview} 
+                                    alt="Rasm ko'rib chiqish" 
+                                    className="w-16 h-16 object-cover rounded-md border"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={handleRemoveImage}
+                                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1"
+                                >
+                                    ×
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+                <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Holati</label>
                     <select name="status" value={formData.status} onChange={handleChange} className="mt-1 block w-full border-gray-300 dark:border-gray-600 rounded-md shadow-sm dark:bg-gray-700">
                         <option value="active">Aktiv</option>
@@ -218,7 +284,20 @@ const Mahsulotlar = () => {
                                 }`}
                                 onClick={() => handleOpenModal(p)}
                             >
-                                <td className="px-6 py-4 font-medium text-gray-900 dark:text-white whitespace-nowrap">{p.name}</td>
+                                <td className="px-6 py-4 font-medium text-gray-900 dark:text-white whitespace-nowrap">
+                                    {p.image && (
+                                        <img 
+                                            src={p.image.startsWith('/media/') ? `http://127.0.0.1:8000${p.image}` : `http://127.0.0.1:8000/media/${p.image}`} 
+                                            alt={p.name} 
+                                            className="w-8 h-8 object-cover inline-block mr-2 rounded" 
+                                            onError={(e) => {
+                                                console.error('Image failed to load:', p.image);
+                                                e.currentTarget.style.display = 'none';
+                                            }}
+                                        />
+                                    )}
+                                    {p.name}
+                                </td>
                                 <td className="px-6 py-4">{Number(p.salePrice).toLocaleString()} {settings.currency}</td>
                                 <td className="px-6 py-4">{Number(p.purchasePrice).toLocaleString()} {settings.currency}</td>
                                 <td className="px-6 py-4 flex items-center">
