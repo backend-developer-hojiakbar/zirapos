@@ -14,7 +14,7 @@ async function testExpenseAPI() {
     try {
         // Test initial data
         console.log('Testing /api/data/initial/...');
-        const response = await fetch('http://127.0.0.1:8000/api/data/initial/', {
+        const response = await fetch('https://yengilfood1api.cdcgroup.uz/api/data/initial/', {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -60,7 +60,7 @@ async function testCreateExpense() {
     }
     
     try {
-        const response = await fetch('http://127.0.0.1:8000/api/expense-types/', {
+        const response = await fetch('https://yengilfood1api.cdcgroup.uz/api/expense-types/', {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -72,7 +72,7 @@ async function testCreateExpense() {
             if (expenseTypes.length > 0) {
                 const firstType = expenseTypes[0];
                 
-                const createResponse = await fetch('http://127.0.0.1:8000/api/expenses/', {
+                const createResponse = await fetch('https://yengilfood1api.cdcgroup.uz/api/expenses/', {
                     method: 'POST',
                     headers: {
                         'Authorization': `Bearer ${token}`,
