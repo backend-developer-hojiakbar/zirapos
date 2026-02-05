@@ -1,12 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext.tsx';
-import { StoreSettings } from '../types.ts';
-import { Trash2 } from 'lucide-react';
+import { StoreSettings, ExpenseType } from '../types.ts';
+import { Trash2, PlusCircle } from 'lucide-react';
 
 const Sozlamalar = () => {
-    const { settings, units, updateSettings, addUnit, deleteUnit } = useAppContext();
+    const { settings, units, expenseTypes, isDataLoading, updateSettings, addUnit, deleteUnit, addExpenseType, updateExpenseType, deleteExpenseType } = useAppContext();
+    
+    // Debug log
+    console.log('Sozlamalar component - expenseTypes:', expenseTypes);
+    console.log('Sozlamalar component - isDataLoading:', isDataLoading);
+    console.log('Sozlamalar component - expenseTypes length:', expenseTypes?.length || 0);
+
+    
     const [formData, setFormData] = useState<Partial<StoreSettings>>({});
     const [newUnitName, setNewUnitName] = useState('');
+    const [newExpenseTypeName, setNewExpenseTypeName] = useState('');
+    const [newExpenseTypeDisplayName, setNewExpenseTypeDisplayName] = useState('');
+    const [editingExpenseType, setEditingExpenseType] = useState<ExpenseType | null>(null);
 
     useEffect(() => {
         if (settings) {
@@ -49,6 +59,55 @@ const Sozlamalar = () => {
                 alert("Birlikni o'chirishda xatolik");
             }
         }
+    };
+
+    const handleAddExpenseType = async () => {
+        if (newExpenseTypeName.trim() && newExpenseTypeDisplayName.trim()) {
+            try {
+                await addExpenseType({
+                    name: newExpenseTypeName.trim(),
+                    display_name: newExpenseTypeDisplayName.trim()
+                });
+                setNewExpenseTypeName('');
+                setNewExpenseTypeDisplayName('');
+            } catch (error) {
+                alert("Xarajat turi qo'shishda xatolik");
+            }
+        } else {
+            alert("Xarajat turi nomi va ko'rsatiladigan nom kiritilishi kerak.");
+        }
+    };
+
+    const handleEditExpenseType = async () => {
+        if (editingExpenseType && editingExpenseType.id) {
+            try {
+                await updateExpenseType(editingExpenseType.id, {
+                    name: editingExpenseType.name,
+                    display_name: editingExpenseType.display_name
+                });
+                setEditingExpenseType(null);
+            } catch (error) {
+                alert("Xarajat turini tahrirlashda xatolik");
+            }
+        }
+    };
+
+    const handleRemoveExpenseType = async (id: string) => {
+        if (window.confirm("Haqiqatan ham bu xarajat turini o'chirmoqchimisiz?")) {
+            try {
+                await deleteExpenseType(id);
+            } catch (error) {
+                alert("Xarajat turini o'chirishda xatolik");
+            }
+        }
+    };
+
+    const startEditingExpenseType = (type: ExpenseType) => {
+        setEditingExpenseType({...type});
+    };
+
+    const cancelEditingExpenseType = () => {
+        setEditingExpenseType(null);
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -137,14 +196,20 @@ const Sozlamalar = () => {
                 <div>
                     <h2 className="text-2xl font-bold mb-4 border-b pb-2 dark:border-gray-600">O'lchov Birliklari</h2>
                     <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
-                        {units.map((unit) => (
+                        {units && units.length > 0 ? (
+                            units.map((unit) => (
                             <div key={unit.id} className="flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-700/50 rounded-md">
                                 <span>{unit.name}</span>
                                 <button type="button" onClick={() => handleRemoveUnit(unit.id)} className="p-1 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/50 rounded-full">
                                     <Trash2 size={16} />
                                 </button>
                             </div>
-                        ))}
+                        ))
+                        ) : (
+                            <div className="text-center py-4 text-gray-500">
+                                Hozircha o'lchov birliklari mavjud emas.
+                            </div>
+                        )}
                     </div>
                     <div className="mt-4 flex space-x-2">
                         <input
@@ -158,6 +223,108 @@ const Sozlamalar = () => {
                         <button type="button" onClick={handleAddUnit} className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
                             Qo'shish
                         </button>
+                    </div>
+                </div>
+
+                <div>
+                    <h2 className="text-2xl font-bold mb-4 border-b pb-2 dark:border-gray-600">Xarajat Turlari</h2>
+                    <div className="space-y-2 max-h-64 overflow-y-auto pr-2">
+                        {expenseTypes && expenseTypes.length > 0 ? (
+                            expenseTypes.map((type) => (
+                            editingExpenseType && editingExpenseType.id === type.id ? (
+                                <div key={type.id} className="flex flex-wrap items-center p-2 bg-blue-50 dark:bg-blue-900/30 rounded-md gap-2">
+                                    <input
+                                        type="text"
+                                        value={editingExpenseType.name}
+                                        onChange={(e) => setEditingExpenseType({...editingExpenseType, name: e.target.value})}
+                                        className="flex-grow p-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm dark:bg-gray-700"
+                                        placeholder="Nom"
+                                    />
+                                    <input
+                                        type="text"
+                                        value={editingExpenseType.display_name}
+                                        onChange={(e) => setEditingExpenseType({...editingExpenseType, display_name: e.target.value})}
+                                        className="flex-grow p-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm dark:bg-gray-700"
+                                        placeholder="Ko'rsatiladigan nom"
+                                    />
+                                    <div className="flex space-x-2">
+                                        <button 
+                                            type="button" 
+                                            onClick={handleEditExpenseType}
+                                            className="p-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+                                        >
+                                            Saqlash
+                                        </button>
+                                        <button 
+                                            type="button" 
+                                            onClick={cancelEditingExpenseType}
+                                            className="p-2 bg-gray-600 text-white rounded-md hover:bg-gray-700"
+                                        >
+                                            Bekor qilish
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div key={type.id} className="flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-700/50 rounded-md">
+                                    <div className="flex-1">
+                                        <div className="font-medium">{type.name}</div>
+                                        <div className="text-sm text-gray-600 dark:text-gray-400">{type.display_name}</div>
+                                    </div>
+                                    <div className="flex space-x-2">
+                                        <button 
+                                            type="button" 
+                                            onClick={() => startEditingExpenseType(type)}
+                                            className="p-1 text-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/50 rounded-full"
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                                <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                                            </svg>
+                                        </button>
+                                        <button 
+                                            type="button" 
+                                            onClick={() => handleRemoveExpenseType(type.id)}
+                                            className="p-1 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/50 rounded-full"
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </div>
+                                </div>
+                            )
+                        ))
+                        ) : (
+                            <div className="text-center py-8 text-gray-500">
+                                Hozircha xarajat turlari mavjud emas. Quyidagi form orqali yangi xarajat turi qo'shing.
+                            </div>
+                        )}
+                    </div>
+                    <div className="mt-4 space-y-3">
+                        <div className="flex flex-wrap gap-2">
+                            <input
+                                type="text"
+                                value={newExpenseTypeName}
+                                onChange={(e) => setNewExpenseTypeName(e.target.value)}
+                                placeholder="Xarajat turi nomi (masalan: elektrika)"
+                                className="flex-grow p-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm dark:bg-gray-700"
+                            />
+                            <input
+                                type="text"
+                                value={newExpenseTypeDisplayName}
+                                onChange={(e) => setNewExpenseTypeDisplayName(e.target.value)}
+                                placeholder="Ko'rsatiladigan nom (masalan: Elektrik to'lovi)"
+                                className="flex-grow p-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm dark:bg-gray-700"
+                            />
+                            <button 
+                                type="button" 
+                                onClick={handleAddExpenseType}
+                                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center"
+                            >
+                                <PlusCircle size={18} className="mr-1" />
+                                Qo'shish
+                            </button>
+                        </div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400">
+                            Maslahat: Xarajat turi nomi kichik harflarda, bo'shliqsiz yoziladi (masalan: elektrika, marketing, maosh). Ko'rsatiladigan nom esa foydalanuvchilarga ko'rsatiladigan to'liq nom bo'ladi.
+                        </div>
                     </div>
                 </div>
 

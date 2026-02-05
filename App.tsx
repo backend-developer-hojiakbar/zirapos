@@ -1,7 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import { HashRouter, Route, Routes, Navigate, useLocation, Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { AppProvider, useAppContext } from './context/AppContext.tsx';
-import { LayoutDashboard, Terminal, History, Package, Barcode, Users, Truck, BarChart2, UsersRound, Settings, Lock, Warehouse as WarehouseIcon } from 'lucide-react';
+import { LayoutDashboard, Terminal, History, Package, Barcode, Users, Truck, BarChart2, UsersRound, Settings, Lock, Warehouse as WarehouseIcon, CreditCard } from 'lucide-react';
 import Savdo from './pages/Savdo.tsx';
 import Dashboard from './pages/Dashboard.tsx';
 import SavdolarTarixi from './pages/SavdolarTarixi.tsx';
@@ -14,6 +14,7 @@ import Hisobotlar from './pages/Hisobotlar.tsx';
 import Sozlamalar from './pages/Sozlamalar.tsx';
 import LoginPage from './pages/LoginPage.tsx';
 import Hodimlar from './pages/Hodimlar.tsx';
+import Xarajatlar from './pages/Xarajatlar.tsx';
 import { Permission } from './types.ts';
 import { useKeyboardNavigation } from './hooks/useKeyboardNavigation.ts';
 
@@ -26,6 +27,7 @@ const navLinks = [
   { path: '/omborlar', label: "Omborlar", icon: WarehouseIcon, permission: Permission.MANAGE_WAREHOUSE },
   { path: '/mijozlar', label: "Mijozlar", icon: Users, permission: Permission.MANAGE_CUSTOMERS },
   { path: '/yetkazib-beruvchilar', label: "Yetkazib Beruvchilar", icon: Truck, permission: Permission.MANAGE_SUPPLIERS },
+  { path: '/xarajatlar', label: "Xarajatlar", icon: CreditCard, permission: Permission.MANAGE_SETTINGS },
   { path: '/hisobotlar', label: "Hisobotlar", icon: BarChart2, permission: Permission.VIEW_REPORTS },
   { path: '/hodimlar', label: "Xodimlar", icon: UsersRound, permission: Permission.MANAGE_EMPLOYEES },
   { path: '/sozlamalar', label: "Sozlamalar", icon: Settings, permission: Permission.MANAGE_SETTINGS },
@@ -199,6 +201,7 @@ const AppRoutes = () => {
         <Route path="/yetkazib-beruvchilar" element={<PermissionRoute permission={Permission.MANAGE_SUPPLIERS}><YetkazibBeruvchilar /></PermissionRoute>} />
         <Route path="/hisobotlar" element={<PermissionRoute permission={Permission.VIEW_REPORTS}><Hisobotlar /></PermissionRoute>} />
         <Route path="/hodimlar" element={<PermissionRoute permission={Permission.MANAGE_EMPLOYEES}><Hodimlar /></PermissionRoute>} />
+        <Route path="/xarajatlar" element={<PermissionRoute permission={Permission.MANAGE_SETTINGS}><Xarajatlar /></PermissionRoute>} />
         <Route path="/sozlamalar" element={<PermissionRoute permission={Permission.MANAGE_SETTINGS}><Sozlamalar /></PermissionRoute>} />
       </Route>
       

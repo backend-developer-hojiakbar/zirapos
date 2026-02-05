@@ -1,12 +1,26 @@
-import { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
-import { Product, Customer, Supplier, Sale, Employee, Role, Permission, StoreSettings, DebtPayment, GoodsReceipt, Unit, StockMovement, Warehouse, WarehouseProduct } from '../types.ts';
+import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
+import api from '../api';
+import { 
+    Permission, 
+    Employee, 
+    Role, 
+    Product, 
+    Customer, 
+    Supplier, 
+    Sale, 
+    DebtPayment, 
+    GoodsReceipt, 
+    Unit, 
+    StoreSettings, 
+    CartItem, 
+    Warehouse, 
+    WarehouseProduct, 
+    ExpenseType, 
+    Expense, 
+    StockMovement 
+} from '../types';
 
-import { CartItem } from '../types.ts';
-
-
-import api from '../api.ts';
-
-interface AppContextType {
+export interface AppContextType {
     isDataLoading: boolean;
     currentUser: Employee | null;
     login: (pin: string) => Promise<boolean>;
@@ -31,12 +45,14 @@ interface AppContextType {
     lastSale: Sale | null;
     isAddCustomerModalOpen: boolean;
     stockMovements: StockMovement[];
-    warehouses: Warehouse[]; // Add this line
-    warehouseProducts: WarehouseProduct[]; // Add this line
+    warehouses: Warehouse[];
+    warehouseProducts: WarehouseProduct[];
+    expenseTypes: ExpenseType[];
+    expenses: Expense[];
     addProductToCart: (product: Product, quantity: number, isWholesale?: boolean, wholesalePrice?: number) => void;
     removeProductFromCart: (productId: string) => void;
     updateCartItemQuantity: (productId: string, quantity: number) => void;
-    updateCartItemPrice: (productId: string, price: number) => void; // New function
+    updateCartItemPrice: (productId: string, price: number) => void;
     saveSale: (sale: Sale) => Promise<Sale>;
     setSearchTerm: (term: string) => void;
     setSearchResults: (results: Product[]) => void;
@@ -47,6 +63,12 @@ interface AppContextType {
     setIsAddCustomerModalOpen: (open: boolean) => void;
     reloadData: () => Promise<void>;
     createSale: (saleData: Omit<Sale, 'id' | 'date' | 'seller'>) => Promise<Sale>;
+    addExpenseType: (data: Partial<ExpenseType>) => Promise<ExpenseType>;
+    updateExpenseType: (id: string, data: Partial<ExpenseType>) => Promise<ExpenseType>;
+    deleteExpenseType: (id: string) => Promise<void>;
+    addExpense: (data: Partial<Expense>) => Promise<Expense>;
+    updateExpense: (id: string, data: Partial<Expense>) => Promise<Expense>;
+    deleteExpense: (id: string) => Promise<void>;
     addGoodsReceipt: (receiptData: Omit<GoodsReceipt, 'id' | 'date' | 'supplier'>) => Promise<GoodsReceipt>;
     payDebt: (customerId: string, amount: number, paymentType: any) => Promise<void>;
     updateSettings: (settingsData: Partial<StoreSettings>) => Promise<StoreSettings>;
@@ -67,12 +89,12 @@ interface AppContextType {
     deleteSupplier: (id: string) => Promise<void>;
     addUnit: (data: Partial<Unit>) => Promise<Unit>;
     deleteUnit: (id: string) => Promise<void>;
-    addWarehouse: (data: Partial<Warehouse>) => Promise<Warehouse>; // Add this line
-    updateWarehouse: (id: string, data: Partial<Warehouse>) => Promise<Warehouse>; // Add this line
-    deleteWarehouse: (id: string) => Promise<void>; // Add this line
-    addWarehouseProduct: (data: Partial<WarehouseProduct>) => Promise<WarehouseProduct>; // Add this line
-    updateWarehouseProduct: (id: string, data: Partial<WarehouseProduct>) => Promise<WarehouseProduct>; // Add this line
-    deleteWarehouseProduct: (id: string) => Promise<void>; // Add this line
+    addWarehouse: (data: Partial<Warehouse>) => Promise<Warehouse>;
+    updateWarehouse: (id: string, data: Partial<Warehouse>) => Promise<Warehouse>;
+    deleteWarehouse: (id: string) => Promise<void>;
+    addWarehouseProduct: (data: Partial<WarehouseProduct>) => Promise<WarehouseProduct>;
+    updateWarehouseProduct: (id: string, data: Partial<WarehouseProduct>) => Promise<WarehouseProduct>;
+    deleteWarehouseProduct: (id: string) => Promise<void>;
     setIsDataLoading: (loading: boolean) => void;
     setCurrentUser: (user: Employee | null) => void;
     setProducts: (products: Product[]) => void;
@@ -87,8 +109,10 @@ interface AppContextType {
     setEmployees: (employees: Employee[]) => void;
     setCart: (cart: CartItem[]) => void;
     setStockMovements: (movements: StockMovement[]) => void;
-    setWarehouses: (warehouses: Warehouse[]) => void; // Add this line
-    setWarehouseProducts: (warehouseProducts: WarehouseProduct[]) => void; // Add this line
+    setWarehouses: (warehouses: Warehouse[]) => void;
+    setWarehouseProducts: (warehouseProducts: WarehouseProduct[]) => void;
+    setExpenseTypes: (expenseTypes: ExpenseType[]) => void;
+    setExpenses: (expenses: Expense[]) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -103,8 +127,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [roles, setRoles] = useState<Role[]>([]);
     const [stockMovements, setStockMovements] = useState<StockMovement[]>([]);
-    const [warehouses, setWarehouses] = useState<Warehouse[]>([]); // Add this line
-    const [warehouseProducts, setWarehouseProducts] = useState<WarehouseProduct[]>([]); // Add this line
+    const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
+    const [warehouseProducts, setWarehouseProducts] = useState<WarehouseProduct[]>([]);
+    const [expenseTypes, setExpenseTypes] = useState<ExpenseType[]>([]);
+    const [expenses, setExpenses] = useState<Expense[]>([]);
 
     const [settings, setSettings] = useState<StoreSettings | null>(null);
     const [debtPayments, setDebtPayments] = useState<DebtPayment[]>([]);
@@ -156,7 +182,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         );
     }, []);
 
-    // New function to update cart item price
     const updateCartItemPrice = useCallback((productId: string, price: number) => {
         setCart(prev => 
             prev.map(item => 
@@ -170,7 +195,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     const fetchInitialData = useCallback(async () => {
         setIsDataLoading(true);
         try {
-            const { data } = await api.get('/data/initial/');
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 30000);
+            
+            const response = await api.get('/data/initial/', {
+                signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+            const { data } = response;
             setProducts(data.products);
             setCustomers(data.customers);
             setSuppliers(data.suppliers);
@@ -182,18 +214,18 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             setRoles(data.roles);
             setEmployees(data.employees);
             setStockMovements(data.stockMovements || []);
-            
-            // Fetch warehouses and warehouse products
-            const warehousesResponse = await api.get('/warehouses/');
-            setWarehouses(warehousesResponse.data);
-            
-            const warehouseProductsResponse = await api.get('/warehouse-products/');
-            setWarehouseProducts(warehouseProductsResponse.data);
+            setWarehouses(data.warehouses || []);
+            setWarehouseProducts(data.warehouseProducts || []);
+            setExpenseTypes(data.expenseTypes || []);
+            setExpenses(data.expenses || []);
             
             const meResponse = await api.get('/auth/me/');
             setCurrentUser(meResponse.data);
         } catch (error) {
             console.error("Failed to fetch initial data", error);
+            if ((error as any).code === 'ECONNABORTED' || (error as any).message?.includes('timeout')) {
+                console.error("Request timeout: /data/initial/ endpoint took too long to respond");
+            }
             logout();
         } finally {
             setIsDataLoading(false);
@@ -234,6 +266,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         setGoodsReceipts([]);
         setRoles([]);
         setEmployees([]);
+        setExpenses([]);
+        setExpenseTypes([]);
         setIsDataLoading(false);
     };
 
@@ -276,8 +310,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     const addEntity = async <T,>(entityName: string, entityData: Partial<T>) => {
         let response;
         
-        // Check if we need to send as FormData for file uploads
-        if (entityData.hasOwnProperty('image') && entityData.image instanceof File) {
+        if ('image' in entityData && (entityData as any).image instanceof File) {
             const formData = new FormData();
             Object.keys(entityData).forEach(key => {
                 const value = entityData[key as keyof typeof entityData];
@@ -302,8 +335,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     const updateEntity = async <T,>(entityName: string, id: string, entityData: Partial<T>) => {
         let response;
         
-        // Check if we need to send as FormData for file uploads
-        if (entityData.hasOwnProperty('image') && entityData.image instanceof File) {
+        if ('image' in entityData && (entityData as any).image instanceof File) {
             const formData = new FormData();
             Object.keys(entityData).forEach(key => {
                 const value = entityData[key as keyof typeof entityData];
@@ -357,10 +389,12 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         stockMovements,
         warehouses,
         warehouseProducts,
+        expenseTypes,
+        expenses,
         addProductToCart,
         removeProductFromCart,
         updateCartItemQuantity,
-        updateCartItemPrice, // Add new function
+        updateCartItemPrice,
         saveSale,
         setSearchTerm,
         setSearchResults,
@@ -385,6 +419,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         setStockMovements,
         setWarehouses,
         setWarehouseProducts,
+        setExpenseTypes,
+        setExpenses,
         reloadData: fetchInitialData,
         createSale,
         addGoodsReceipt,
@@ -399,8 +435,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         addProduct: async (data: Partial<Product>) => {
             let response;
             
-            // Check if image is a File object for product
-            if (data.image instanceof File) {
+            if ('image' in data && (data as any).image instanceof File) {
                 const formData = new FormData();
                 Object.keys(data).forEach(key => {
                     const value = data[key as keyof typeof data];
@@ -424,8 +459,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         updateProduct: async (id: string, data: Partial<Product>) => {
             let response;
             
-            // Check if image is a File object for product
-            if (data.image instanceof File) {
+            if ('image' in data && (data as any).image instanceof File) {
                 const formData = new FormData();
                 Object.keys(data).forEach(key => {
                     const value = data[key as keyof typeof data];
@@ -461,6 +495,34 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         addWarehouseProduct: (data: Partial<WarehouseProduct>) => addEntity('warehouse-products', data),
         updateWarehouseProduct: (id: string, data: Partial<WarehouseProduct>) => updateEntity('warehouse-products', id, data),
         deleteWarehouseProduct: (id: string) => deleteEntity('warehouse-products', id),
+        addExpenseType: async (data: Partial<ExpenseType>) => {
+            const response = await api.post<ExpenseType>('/expense-types/', data);
+            await fetchInitialData();
+            return response.data;
+        },
+        updateExpenseType: async (id: string, data: Partial<ExpenseType>) => {
+            const response = await api.put<ExpenseType>(`/expense-types/${id}/`, data);
+            await fetchInitialData();
+            return response.data;
+        },
+        deleteExpenseType: async (id: string) => {
+            await api.delete(`/expense-types/${id}/`);
+            await fetchInitialData();
+        },
+        addExpense: async (data: Partial<Expense>) => {
+            const response = await api.post<Expense>('/expenses/', data);
+            setExpenses(prev => [...prev, response.data]);
+            return response.data;
+        },
+        updateExpense: async (id: string, data: Partial<Expense>) => {
+            const response = await api.put<Expense>(`/expenses/${id}/`, data);
+            setExpenses(prev => prev.map(exp => exp.id === id ? response.data : exp));
+            return response.data;
+        },
+        deleteExpense: async (id: string) => {
+            await api.delete(`/expenses/${id}/`);
+            setExpenses(prev => prev.filter(exp => exp.id !== id));
+        },
     };
 
     return (

@@ -1,8 +1,10 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext.tsx';
 import { Link } from 'react-router-dom';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { DollarSign, ShoppingBag, AlertTriangle, Users, PackagePlus, UserPlus, Terminal } from 'lucide-react';
+import { DollarSign, ShoppingBag, AlertTriangle, Users, PackagePlus, UserPlus, Terminal, TrendingDown } from 'lucide-react';
+import api from '../api.ts';
+import { DashboardStats } from '../types.ts';
 
 const StatCard = ({ icon: Icon, title, value, colorClass }: { icon: React.ElementType, title: string, value: string, colorClass: string }) => (
     <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg flex items-center space-x-6">
@@ -16,6 +18,12 @@ const StatCard = ({ icon: Icon, title, value, colorClass }: { icon: React.Elemen
     </div>
 );
 
+const LoadingSpinner = () => (
+    <div className="flex justify-center items-center h-16">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+    </div>
+);
+
 const QuickActionButton = ({ icon: Icon, title, to, colorClass }: { icon: React.ElementType, title: string, to: string, colorClass: string }) => (
     <Link to={to} className={`flex flex-col items-center justify-center p-6 rounded-xl shadow-lg text-white transition-transform transform hover:scale-105 ${colorClass}`}>
         <Icon className="h-10 w-10 mb-2" />
@@ -25,36 +33,23 @@ const QuickActionButton = ({ icon: Icon, title, to, colorClass }: { icon: React.
 
 const Dashboard = () => {
     const { sales, products, customers, settings, employees } = useAppContext();
+    const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
+    const [loadingStats, setLoadingStats] = useState(true);
 
-    const stats = useMemo(() => {
-        if (!sales || !products || !customers || !settings) return { totalSales: 0, profit: 0, saleCount: 0, totalDebt: 0 };
-        const today = new Date();
-        const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-
-        const monthlySales = sales.filter(sale => new Date(sale.date) >= startOfMonth);
-
-        let totalSales = 0;
-        let totalCost = 0;
-        
-        monthlySales.forEach(sale => {
-            totalSales += parseFloat(String(sale.total)) || 0;
-            sale.items.forEach(item => {
-                const product = products.find(p => p.id === item.productId);
-                if (product) {
-                    totalCost += (parseFloat(String(product.purchasePrice)) || 0) * item.quantity;
-                }
-            });
-        });
-        
-        const totalDebt = customers.reduce((acc, c) => acc + (parseFloat(String(c.debt)) || 0), 0);
-
-        return {
-            totalSales,
-            profit: totalSales - totalCost,
-            saleCount: monthlySales.length,
-            totalDebt,
+    useEffect(() => {
+        const fetchDashboardStats = async () => {
+            try {
+                const response = await api.get('/dashboard/stats/');
+                setDashboardStats(response.data);
+            } catch (error) {
+                console.error('Error fetching dashboard stats:', error);
+            } finally {
+                setLoadingStats(false);
+            }
         };
-    }, [sales, products, customers, settings]);
+
+        fetchDashboardStats();
+    }, []);
 
     const salesByDay = useMemo(() => {
         if (!sales || !settings) return [];
@@ -97,10 +92,18 @@ const Dashboard = () => {
                 <QuickActionButton icon={UserPlus} title="Mijoz Qo'shish" to="/mijozlar" colorClass="bg-gradient-to-br from-purple-500 to-purple-600" />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-                <StatCard icon={DollarSign} title="Oylik Savdo" value={`${stats.totalSales.toLocaleString()} ${settings.currency}`} colorClass="bg-green-500" />
-                <StatCard icon={ShoppingBag} title="Sof Foyda" value={`${stats.profit.toLocaleString()} ${settings.currency}`} colorClass="bg-blue-500" />
-                <StatCard icon={Users} title="Mijozlar Qarzi" value={`${stats.totalDebt.toLocaleString()} ${settings.currency}`} colorClass="bg-red-500" />
-                <StatCard icon={AlertTriangle} title="Kam Qolganlar" value={lowStockProducts.length.toString()} colorClass="bg-yellow-500" />
+                {loadingStats ? (
+                    <div className="col-span-4 flex justify-center items-center h-32">
+                        <LoadingSpinner />
+                    </div>
+                ) : (
+                    <>
+                        <StatCard icon={DollarSign} title="Umumiy Savdo" value={`${dashboardStats?.total_sales.toLocaleString() ?? '0'} ${settings?.currency}`} colorClass="bg-green-500" />
+                        <StatCard icon={TrendingDown} title="Umumiy Xarajatlar" value={`${dashboardStats?.total_expenses.toLocaleString() ?? '0'} ${settings?.currency}`} colorClass="bg-red-500" />
+                        <StatCard icon={ShoppingBag} title="Net Foyda" value={`${dashboardStats?.net_profit.toLocaleString() ?? '0'} ${settings?.currency}`} colorClass={dashboardStats?.net_profit !== undefined && dashboardStats?.net_profit >= 0 ? "bg-blue-500" : "bg-orange-500"} />
+                        <StatCard icon={AlertTriangle} title="Kam Qolganlar" value={lowStockProducts.length.toString()} colorClass="bg-yellow-500" />
+                    </>
+                )}
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">

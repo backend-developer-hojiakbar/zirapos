@@ -287,7 +287,7 @@ const Mahsulotlar = () => {
                                 <td className="px-6 py-4 font-medium text-gray-900 dark:text-white whitespace-nowrap">
                                     {p.image && (
                                         <img 
-                                            src={p.image.startsWith('/media/') ? `https://yengilfood1api.cdcgroup.uz${p.image}` : `https://yengilfood1api.cdcgroup.uz/media/${p.image}`} 
+                                            src={p.image.startsWith('/media/') ? `http://127.0.0.1:8000${p.image}` : `http://127.0.0.1:8000/media/${p.image}`} 
                                             alt={p.name} 
                                             className="w-8 h-8 object-cover inline-block mr-2 rounded" 
                                             onError={(e) => {

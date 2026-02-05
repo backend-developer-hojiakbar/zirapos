@@ -385,7 +385,7 @@ const Savdo = () => {
                                 <td className="px-6 py-4 font-medium text-gray-900 dark:text-white whitespace-nowrap">
                                     {product.image && (
                                         <img 
-                                            src={product.image.startsWith('/media/') ? `https://yengilfood1api.cdcgroup.uz${product.image}` : `https://yengilfood1api.cdcgroup.uz/media/${product.image}`} 
+                                            src={product.image.startsWith('/media/') ? `http://127.0.0.1:8000${product.image}` : `http://127.0.0.1:8000/media/${product.image}`} 
                                             alt={product.name} 
                                             className="w-8 h-8 object-cover inline-block mr-2 rounded" 
                                             onError={(e) => {

@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Auth Debug</title>
+</head>
+<body>
+    <h1>Authentication Debug</h1>
+    <button onclick="checkToken()">Check Token</button>
+    <button onclick="testAPI()">Test API</button>
+    <div id="result"></div>
+
+    <script>
+        function checkToken() {
+            const token = localStorage.getItem('pos-auth-token');
+            document.getElementById('result').innerHTML = `
+                <h3>Token Status:</h3>
+                <p>Token exists: ${!!token}</p>
+                <p>Token: ${token ? token.substring(0, 50) + '...' : 'None'}</p>
+            `;
+        }
+
+        async function testAPI() {
+            const token = localStorage.getItem('pos-auth-token');
+            if (!token) {
+                document.getElementById('result').innerHTML = '<p style="color: red;">No token found!</p>';
+                return;
+            }
+
+            try {
+                const response = await fetch('http://127.0.0.1:8000/api/data/initial/', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+                document.getElementById('result').innerHTML = `
+                    <h3>API Response:</h3>
+                    <p>Status: ${response.status}</p>
+                    <p>Expense Types: ${data.expenseTypes ? data.expenseTypes.length : 0}</p>
+                    <p>Expenses: ${data.expenses ? data.expenses.length : 0}</p>
+                    <p>Employees: ${data.employees ? data.employees.length : 0}</p>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+            } catch (error) {
+                document.getElementById('result').innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>

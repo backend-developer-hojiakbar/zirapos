@@ -194,3 +194,43 @@ export interface StoreSettings {
     location?: string; // Added location field
     id: string;
 }
+
+export interface ExpenseType {
+    id: string;
+    name: string;
+    display_name: string;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface Expense {
+    id: string;
+    date: string;
+    amount: number | string;
+    type?: ExpenseType;
+    typeId?: string;
+    description?: string;
+    employee?: Employee;
+    employeeId?: string;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface DashboardStats {
+    total_sales: number;
+    total_expenses: number;
+    net_profit: number;
+    recent_sales_total: number;
+    recent_sales_count: number;
+    recent_expenses_total: number;
+    recent_expenses_count: number;
+    top_products: {
+        name: string;
+        total_sold: number;
+    }[];
+    expense_breakdown: {
+        type: string;
+        total: number;
+        count: number;
+    }[];
+}
